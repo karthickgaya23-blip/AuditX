@@ -1,0 +1,1767 @@
+import React, { useState, useReducer, useCallback, useEffect } from 'react';
+// ==================== REDUX-LIKE STATE MANAGEMENT ====================
+const initialState = {
+  currentPersona: 'auditor',
+  selectedAudit: null,
+  promptHistory: [],
+  agentResponses: [],
+  filterStatus: 'all',
+  
+  // Audit Queue Data
+  audits: [
+    {
+      id: 'AUD-001',
+      name: 'AI Platform on Microsoft Azure Specialization',
+      shortName: 'AI Apps on MSFT Azure Spec Audit',
+      type: 'AI/ML Specialization',
+      status: 'pending_review',
+      complianceScore: 87,
+      dueDate: '2026-01-31',
+      evidenceItems: 18,
+      workloads: 3,
+      certifications: ['AI-102', 'DP-100'],
+      assignedTo: null,
+      lastReviewed: '2026-01-28',
+      partner: 'Nexus AI Technologies',
+      workloadDetails: [
+        { name: 'Cognitive Services Pipeline', startDate: '2024-11-15', status: 'Active', uptime: 99.7 },
+        { name: 'ML Model Training Cluster', startDate: '2024-09-22', status: 'Active', uptime: 98.9 },
+        { name: 'Azure OpenAI Integration', startDate: '2025-01-10', status: 'Active', uptime: 99.2 }
+      ],
+      employees: [
+        { name: 'John Smith', cert: 'AI-102', certDate: '2024-03-15', expiryDate: '2026-03-15' },
+        { name: 'Maria Garcia', cert: 'DP-100', certDate: '2024-06-20', expiryDate: '2026-06-20' },
+        { name: 'David Lee', cert: 'AI-900', certDate: '2024-01-10', expiryDate: '2026-01-10' }
+      ]
+    },
+    {
+      id: 'AUD-002',
+      name: 'Analytics on Azure Specialization',
+      shortName: 'Analytics on Azure Spec Audit',
+      type: 'Data & Analytics',
+      status: 'approved',
+      complianceScore: 94,
+      dueDate: '2026-01-30',
+      evidenceItems: 22,
+      workloads: 4,
+      certifications: ['DP-203', 'DP-900'],
+      assignedTo: 'Sarah Chen',
+      lastReviewed: '2026-01-29',
+      partner: 'Insightful Analytics Corp',
+      workloadDetails: [
+        { name: 'Synapse Analytics Workspace', startDate: '2024-08-10', status: 'Active', uptime: 99.5 },
+        { name: 'Data Factory Pipelines', startDate: '2024-07-05', status: 'Active', uptime: 99.8 },
+        { name: 'Databricks Cluster', startDate: '2024-09-15', status: 'Active', uptime: 98.7 },
+        { name: 'Power BI Premium', startDate: '2024-10-01', status: 'Active', uptime: 99.9 }
+      ],
+      employees: [
+        { name: 'Sarah Chen', cert: 'DP-203', certDate: '2024-04-20', expiryDate: '2026-04-20' },
+        { name: 'Alex Thompson', cert: 'DP-900', certDate: '2024-05-15', expiryDate: '2026-05-15' }
+      ]
+    },
+    {
+      id: 'AUD-003',
+      name: 'Kubernetes on Microsoft Azure Specialization',
+      shortName: 'Kubernetes on MSFT Azure Spec Audit',
+      type: 'Container Platform',
+      status: 'in_progress',
+      complianceScore: 82,
+      dueDate: '2026-01-31',
+      evidenceItems: 12,
+      workloads: 2,
+      certifications: ['AZ-305'],
+      assignedTo: 'Michael Torres',
+      lastReviewed: '2026-01-27',
+      partner: 'ContainerWorks Solutions',
+      workloadDetails: [
+        { name: 'AKS Production Cluster', startDate: '2024-06-20', status: 'Active', uptime: 99.1 },
+        { name: 'Container Registry', startDate: '2024-07-15', status: 'Active', uptime: 99.6 }
+      ],
+      employees: [
+        { name: 'Michael Torres', cert: 'AZ-305', certDate: '2024-02-10', expiryDate: '2026-02-10' }
+      ]
+    },
+    {
+      id: 'AUD-004',
+      name: 'SAP on Microsoft Azure Specialization',
+      shortName: 'SAP on Microsoft Azure Spec Audit',
+      type: 'Enterprise Apps',
+      status: 'pending_review',
+      complianceScore: 76,
+      dueDate: '2026-01-29',
+      evidenceItems: 15,
+      workloads: 2,
+      certifications: ['AZ-120'],
+      assignedTo: null,
+      lastReviewed: '2026-01-25',
+      partner: 'Pinnacle Enterprise Solutions',
+      workloadDetails: [
+        { name: 'SAP S/4HANA on Azure', startDate: '2024-05-01', status: 'Active', uptime: 99.3 },
+        { name: 'SAP BW/4HANA', startDate: '2024-06-15', status: 'Active', uptime: 98.8 }
+      ],
+      employees: [
+        { name: 'Robert Johnson', cert: 'AZ-120', certDate: '2024-03-05', expiryDate: '2026-03-05' },
+        { name: 'Lisa Wang', cert: 'AZ-120', certDate: '2024-04-12', expiryDate: '2026-04-12' }
+      ]
+    },
+    {
+      id: 'AUD-005',
+      name: 'Azure Security Specialization',
+      shortName: 'Security Specialization',
+      type: 'Security',
+      status: 'rejected',
+      complianceScore: 58,
+      dueDate: '2026-01-28',
+      evidenceItems: 10,
+      workloads: 1,
+      certifications: ['AZ-500'],
+      assignedTo: 'Anna Williams',
+      lastReviewed: '2026-01-26',
+      partner: 'CyberShield Security Group',
+      workloadDetails: [
+        { name: 'Azure Sentinel SIEM', startDate: '2025-03-10', status: 'Active', uptime: 97.2 }
+      ],
+      employees: [
+        { name: 'Anna Williams', cert: 'AZ-500', certDate: '2023-08-15', expiryDate: '2025-08-15' }
+      ]
+    },
+    {
+      id: 'AUD-006',
+      name: 'Agentic DevOps with Microsoft Azure and GitHub',
+      shortName: 'Agentic DevOps with Azure & GitHub',
+      type: 'DevOps',
+      status: 'approved',
+      complianceScore: 91,
+      dueDate: '2026-01-27',
+      evidenceItems: 20,
+      workloads: 5,
+      certifications: ['AZ-400'],
+      assignedTo: 'James Park',
+      lastReviewed: '2026-01-30',
+      partner: 'Velocity DevOps Partners',
+      workloadDetails: [
+        { name: 'Azure DevOps Pipelines', startDate: '2024-04-01', status: 'Active', uptime: 99.4 },
+        { name: 'GitHub Actions Workflows', startDate: '2024-05-15', status: 'Active', uptime: 99.7 },
+        { name: 'Azure Boards Integration', startDate: '2024-04-10', status: 'Active', uptime: 99.9 },
+        { name: 'Container Build Pipeline', startDate: '2024-06-01', status: 'Active', uptime: 99.2 },
+        { name: 'Release Management', startDate: '2024-04-20', status: 'Active', uptime: 99.5 }
+      ],
+      employees: [
+        { name: 'James Park', cert: 'AZ-400', certDate: '2024-01-20', expiryDate: '2026-01-20' },
+        { name: 'Emily Brown', cert: 'AZ-400', certDate: '2024-03-10', expiryDate: '2026-03-10' }
+      ]
+    },
+    {
+      id: 'AUD-007',
+      name: 'HCI with Microsoft Azure Local Specialization',
+      shortName: 'HCI w MSFT Azure Local Spec Audit',
+      type: 'Infrastructure',
+      status: 'pending_review',
+      complianceScore: 79,
+      dueDate: '2026-02-05',
+      evidenceItems: 14,
+      workloads: 2,
+      certifications: ['AZ-800', 'AZ-801'],
+      assignedTo: null,
+      lastReviewed: '2026-01-30',
+      partner: 'Fusion Infrastructure Group',
+      workloadDetails: [
+        { name: 'Azure Stack HCI Cluster', startDate: '2024-08-01', status: 'Active', uptime: 99.0 },
+        { name: 'Azure Arc Enabled Servers', startDate: '2024-09-10', status: 'Active', uptime: 98.5 }
+      ],
+      employees: [
+        { name: 'Chris Martinez', cert: 'AZ-800', certDate: '2024-05-20', expiryDate: '2026-05-20' }
+      ]
+    },
+    {
+      id: 'AUD-008',
+      name: 'Network Services in Microsoft Azure Specialization',
+      shortName: 'Network Services in MSFT Azure Spec',
+      type: 'Networking',
+      status: 'in_progress',
+      complianceScore: 85,
+      dueDate: '2026-02-10',
+      evidenceItems: 16,
+      workloads: 3,
+      certifications: ['AZ-700'],
+      assignedTo: 'Kevin Zhang',
+      lastReviewed: '2026-01-31',
+      partner: 'Meridian Networks Inc',
+      workloadDetails: [
+        { name: 'Azure Virtual WAN', startDate: '2024-07-15', status: 'Active', uptime: 99.6 },
+        { name: 'ExpressRoute Circuit', startDate: '2024-06-01', status: 'Active', uptime: 99.9 },
+        { name: 'Azure Firewall', startDate: '2024-08-20', status: 'Active', uptime: 99.4 }
+      ],
+      employees: [
+        { name: 'Kevin Zhang', cert: 'AZ-700', certDate: '2024-04-15', expiryDate: '2026-04-15' },
+        { name: 'Nancy Liu', cert: 'AZ-700', certDate: '2024-06-10', expiryDate: '2026-06-10' }
+      ]
+    },
+    {
+      id: 'AUD-009',
+      name: 'Microsoft Azure VMware Solution Specialization',
+      shortName: 'MSFT Azure VMware Sol Spec Audit',
+      type: 'VMware',
+      status: 'approved',
+      complianceScore: 92,
+      dueDate: '2026-02-15',
+      evidenceItems: 19,
+      workloads: 3,
+      certifications: ['AZ-305', 'VCP-DCV'],
+      assignedTo: 'Rachel Green',
+      lastReviewed: '2026-02-01',
+      partner: 'Virtualize Pro Systems',
+      workloadDetails: [
+        { name: 'AVS Private Cloud', startDate: '2024-05-10', status: 'Active', uptime: 99.7 },
+        { name: 'vSAN Datastore', startDate: '2024-05-15', status: 'Active', uptime: 99.5 },
+        { name: 'NSX-T Network', startDate: '2024-06-01', status: 'Active', uptime: 99.3 }
+      ],
+      employees: [
+        { name: 'Rachel Green', cert: 'AZ-305', certDate: '2024-02-28', expiryDate: '2026-02-28' },
+        { name: 'Tom Wilson', cert: 'VCP-DCV', certDate: '2024-03-15', expiryDate: '2026-03-15' }
+      ]
+    },
+    {
+      id: 'AUD-010',
+      name: 'Microsoft Azure AVD Specialization',
+      shortName: 'MSFT Azure AVD Spec Audit',
+      type: 'Virtual Desktop',
+      status: 'pending_review',
+      complianceScore: 81,
+      dueDate: '2026-02-08',
+      evidenceItems: 13,
+      workloads: 2,
+      certifications: ['AZ-140'],
+      assignedTo: null,
+      lastReviewed: '2026-01-29',
+      partner: 'Desktop Dynamics Corp',
+      workloadDetails: [
+        { name: 'AVD Host Pool - Production', startDate: '2024-09-01', status: 'Active', uptime: 99.2 },
+        { name: 'AVD Host Pool - Development', startDate: '2024-10-15', status: 'Active', uptime: 98.8 }
+      ],
+      employees: [
+        { name: 'Diana Ross', cert: 'AZ-140', certDate: '2024-07-20', expiryDate: '2026-07-20' }
+      ]
+    },
+    {
+      id: 'AUD-011',
+      name: 'Infrastructure Database Migration to Azure Specialization',
+      shortName: 'Infra DB Migration to Azure Spec Audit',
+      type: 'Migration',
+      status: 'in_progress',
+      complianceScore: 88,
+      dueDate: '2026-02-12',
+      evidenceItems: 21,
+      workloads: 4,
+      certifications: ['DP-300', 'AZ-900'],
+      assignedTo: 'Steve Adams',
+      lastReviewed: '2026-02-02',
+      partner: 'CloudBridge Data Solutions',
+      workloadDetails: [
+        { name: 'Azure SQL Managed Instance', startDate: '2024-04-20', status: 'Active', uptime: 99.8 },
+        { name: 'Azure Database for PostgreSQL', startDate: '2024-05-10', status: 'Active', uptime: 99.6 },
+        { name: 'Cosmos DB Migration', startDate: '2024-06-15', status: 'Active', uptime: 99.4 },
+        { name: 'Azure Database for MySQL', startDate: '2024-07-01', status: 'Active', uptime: 99.5 }
+      ],
+      employees: [
+        { name: 'Steve Adams', cert: 'DP-300', certDate: '2024-03-25', expiryDate: '2026-03-25' },
+        { name: 'Monica Bell', cert: 'DP-300', certDate: '2024-04-30', expiryDate: '2026-04-30' }
+      ]
+    },
+    {
+      id: 'AUD-012',
+      name: 'Migrate Enterprise Apps with Microsoft Azure Specialization',
+      shortName: 'Migrate Enterprise Apps MSFT Azure Spec',
+      type: 'App Migration',
+      status: 'approved',
+      complianceScore: 90,
+      dueDate: '2026-02-20',
+      evidenceItems: 17,
+      workloads: 3,
+      certifications: ['AZ-305', 'AZ-204'],
+      assignedTo: 'Paul White',
+      lastReviewed: '2026-02-03',
+      partner: 'NextGen Application Services',
+      workloadDetails: [
+        { name: 'App Service Migration', startDate: '2024-06-01', status: 'Active', uptime: 99.7 },
+        { name: 'Azure Functions Modernization', startDate: '2024-07-15', status: 'Active', uptime: 99.4 },
+        { name: 'Container Apps Migration', startDate: '2024-08-01', status: 'Active', uptime: 99.2 }
+      ],
+      employees: [
+        { name: 'Paul White', cert: 'AZ-305', certDate: '2024-05-10', expiryDate: '2026-05-10' },
+        { name: 'Linda Kim', cert: 'AZ-204', certDate: '2024-06-20', expiryDate: '2026-06-20' }
+      ]
+    },
+    {
+      id: 'AUD-013',
+      name: 'Data Warehouse Migration to Microsoft Azure Specialization',
+      shortName: 'Data Warehouse Migration MSFT Azure Spec',
+      type: 'Data Migration',
+      status: 'pending_review',
+      complianceScore: 84,
+      dueDate: '2026-02-18',
+      evidenceItems: 15,
+      workloads: 2,
+      certifications: ['DP-203', 'DP-500'],
+      assignedTo: null,
+      lastReviewed: '2026-02-01',
+      partner: 'Titanium Data Systems',
+      workloadDetails: [
+        { name: 'Synapse Dedicated SQL Pool', startDate: '2024-07-20', status: 'Active', uptime: 99.3 },
+        { name: 'Azure Data Lake Gen2', startDate: '2024-08-05', status: 'Active', uptime: 99.7 }
+      ],
+      employees: [
+        { name: 'George Miller', cert: 'DP-203', certDate: '2024-04-15', expiryDate: '2026-04-15' },
+        { name: 'Helen Davis', cert: 'DP-500', certDate: '2024-05-25', expiryDate: '2026-05-25' }
+      ]
+    },
+    {
+      id: 'AUD-014',
+      name: 'Digital Sovereignty Specialization',
+      shortName: 'Digital Sovereignty Specialization',
+      type: 'Compliance',
+      status: 'in_progress',
+      complianceScore: 77,
+      dueDate: '2026-02-25',
+      evidenceItems: 24,
+      workloads: 3,
+      certifications: ['SC-900', 'AZ-500'],
+      assignedTo: 'Jennifer Scott',
+      lastReviewed: '2026-02-04',
+      partner: 'Apex Compliance Partners',
+      workloadDetails: [
+        { name: 'Azure Confidential Computing', startDate: '2024-09-01', status: 'Active', uptime: 99.1 },
+        { name: 'Azure Key Vault HSM', startDate: '2024-08-15', status: 'Active', uptime: 99.9 },
+        { name: 'Azure Policy Compliance', startDate: '2024-07-01', status: 'Active', uptime: 99.5 }
+      ],
+      employees: [
+        { name: 'Jennifer Scott', cert: 'SC-900', certDate: '2024-06-10', expiryDate: '2026-06-10' },
+        { name: 'Mark Taylor', cert: 'AZ-500', certDate: '2024-05-20', expiryDate: '2026-05-20' }
+      ]
+    }
+  ],
+  
+  // Workflow Templates for Platform Engineer
+  workflowTemplates: [
+    {
+      id: 'WF-001',
+      name: 'Azure AI Platform Specialization',
+      requiredModules: ['AI-102', 'AI-900', 'DP-100'],
+      workloadCriteria: 'Minimum 3 AI/ML workloads, 12 months runtime',
+      certificationReq: 'At least 2 employees with AI-102, DP-100, or AI-900',
+      auditFrequency: 'Quarterly',
+      verificationPeriod: 'Rolling 12-month window'
+    },
+    {
+      id: 'WF-002',
+      name: 'Azure Data & Analytics Specialization',
+      requiredModules: ['DP-203', 'DP-900'],
+      workloadCriteria: '3+ data platform workloads (Synapse, Data Factory, Databricks) for 12 months',
+      certificationReq: 'Minimum 2 employees with DP-203, DP-900, or DP-100',
+      auditFrequency: 'Quarterly with annual comprehensive audit',
+      verificationPeriod: 'Rolling 12-month window'
+    }
+  ],
+  
+  // Sample Prompts for Auditors
+  samplePrompts: {
+    'AI/ML Specialization': [
+      'List 2 customer workloads with 12-month runtime requirement',
+      'Show employee skills and certification dates',
+      'Cross-reference computed evidence score',
+      'How was workload compliance calculated?'
+    ],
+    'Data & Analytics': [
+      'Display 3+ data platform workloads with metrics',
+      'Verify DP-203/DP-900/DP-100 certifications',
+      'Show pipeline SLA compliance data',
+      'Calculate score methodology breakdown'
+    ],
+    'Security': [
+      'Challenge compliance score for AZ-500',
+      'Show security workload timestamps',
+      'List employees with expired certifications',
+      'Recalculate score showing methodology'
+    ],
+    'General': [
+      'Explain discrepancies in scoring logic',
+      'Show mapping between employees and certs',
+      'Validate continuous 12+ month runtime',
+      'Cross-check Microsoft Learn transcripts'
+    ]
+  },
+  
+  // Dashboard Stats
+  stats: {
+    auditsLast30Days: 127,
+    pendingReview: 23,
+    approved: 89,
+    rejected: 15,
+    avgComplianceScore: 84.2,
+    activeAgents: 8
+  }
+};
+
+// Action Types
+const ACTIONS = {
+  SET_PERSONA: 'SET_PERSONA',
+  SET_FILTER: 'SET_FILTER',
+  SELECT_AUDIT: 'SELECT_AUDIT',
+  ADD_PROMPT: 'ADD_PROMPT',
+  ADD_AGENT_RESPONSE: 'ADD_AGENT_RESPONSE',
+  UPDATE_AUDIT_STATUS: 'UPDATE_AUDIT_STATUS',
+  CREATE_WORKFLOW: 'CREATE_WORKFLOW',
+  DEPLOY_AGENTS: 'DEPLOY_AGENTS',
+  CLEAR_PROMPTS: 'CLEAR_PROMPTS'
+};
+
+// Reducer
+function reducer(state, action) {
+  switch (action.type) {
+    case ACTIONS.SET_PERSONA:
+      return { ...state, currentPersona: action.payload, selectedAudit: null };
+    case ACTIONS.SET_FILTER:
+      return { ...state, filterStatus: action.payload };
+    case ACTIONS.SELECT_AUDIT:
+      return { ...state, selectedAudit: action.payload };
+    case ACTIONS.ADD_PROMPT:
+      return { ...state, promptHistory: [...state.promptHistory, action.payload] };
+    case ACTIONS.ADD_AGENT_RESPONSE:
+      return { ...state, agentResponses: [...state.agentResponses, action.payload] };
+    case ACTIONS.UPDATE_AUDIT_STATUS:
+      return {
+        ...state,
+        audits: state.audits.map(a => 
+          a.id === action.payload.id ? { ...a, status: action.payload.status } : a
+        )
+      };
+    case ACTIONS.CREATE_WORKFLOW:
+      return {
+        ...state,
+        workflowTemplates: [...state.workflowTemplates, action.payload]
+      };
+    case ACTIONS.CLEAR_PROMPTS:
+      return { ...state, promptHistory: [], agentResponses: [] };
+    default:
+      return state;
+  }
+}
+
+// ==================== STYLED COMPONENTS ====================
+const styles = {
+  app: {
+    fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif",
+    minHeight: '100vh',
+    background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+    color: '#1e293b'
+  },
+  header: {
+    background: 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)',
+    padding: '16px 32px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+  },
+  logo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px'
+  },
+  logoText: {
+    fontSize: '28px',
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: '-0.5px'
+  },
+  logoAccent: {
+    color: '#f97316'
+  },
+  personaSwitch: {
+    display: 'flex',
+    gap: '8px',
+    background: 'rgba(255,255,255,0.1)',
+    padding: '4px',
+    borderRadius: '12px'
+  },
+  personaBtn: {
+    padding: '10px 20px',
+    border: 'none',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    fontWeight: '600',
+    fontSize: '14px',
+    transition: 'all 0.3s ease'
+  },
+  personaBtnActive: {
+    background: '#fff',
+    color: '#1e3a5f'
+  },
+  personaBtnInactive: {
+    background: 'transparent',
+    color: 'rgba(255,255,255,0.7)'
+  },
+  mainContainer: {
+    display: 'grid',
+    gridTemplateColumns: '400px 1fr 360px',
+    gap: '20px',
+    padding: '20px',
+    maxWidth: '1800px',
+    margin: '0 auto'
+  },
+  card: {
+    background: '#fff',
+    borderRadius: '16px',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+    overflow: 'hidden'
+  },
+  cardHeader: {
+    padding: '20px 24px',
+    borderBottom: '1px solid #e2e8f0',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  cardTitle: {
+    fontSize: '18px',
+    fontWeight: '700',
+    color: '#1e293b',
+    margin: 0
+  },
+  cardSubtitle: {
+    fontSize: '13px',
+    color: '#64748b',
+    marginTop: '4px'
+  },
+  cardBody: {
+    padding: '20px 24px'
+  },
+  statsGrid: {
+    display: 'flex',
+    gap: '12px',
+    marginBottom: '16px',
+    flexWrap: 'wrap'
+  },
+  statCard: {
+    flex: '1',
+    minWidth: '140px',
+    padding: '12px 16px',
+    borderRadius: '10px',
+    textAlign: 'center'
+  },
+  statValue: {
+    fontSize: '24px',
+    fontWeight: '800',
+    marginBottom: '2px'
+  },
+  statLabel: {
+    fontSize: '10px',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px'
+  },
+  filterTabs: {
+    display: 'flex',
+    gap: '8px',
+    marginBottom: '20px',
+    flexWrap: 'wrap'
+  },
+  filterTab: {
+    padding: '8px 16px',
+    border: '2px solid #e2e8f0',
+    borderRadius: '20px',
+    background: '#fff',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: '600',
+    transition: 'all 0.2s ease'
+  },
+  filterTabActive: {
+    background: '#1e3a5f',
+    borderColor: '#1e3a5f',
+    color: '#fff'
+  },
+  auditItem: {
+    padding: '16px',
+    borderRadius: '12px',
+    border: '2px solid #e2e8f0',
+    marginBottom: '12px',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease'
+  },
+  auditItemSelected: {
+    borderColor: '#3b82f6',
+    background: '#eff6ff'
+  },
+  auditName: {
+    fontSize: '15px',
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: '8px'
+  },
+  auditMeta: {
+    display: 'flex',
+    gap: '12px',
+    flexWrap: 'wrap',
+    fontSize: '12px',
+    color: '#64748b',
+    marginBottom: '10px'
+  },
+  badge: {
+    padding: '4px 10px',
+    borderRadius: '6px',
+    fontSize: '11px',
+    fontWeight: '700',
+    textTransform: 'uppercase'
+  },
+  certBadge: {
+    background: '#dbeafe',
+    color: '#1d4ed8',
+    padding: '3px 8px',
+    borderRadius: '4px',
+    fontSize: '11px',
+    fontWeight: '600',
+    marginRight: '6px'
+  },
+  scoreCircle: {
+    width: '56px',
+    height: '56px',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '18px',
+    fontWeight: '800',
+    marginLeft: 'auto'
+  },
+  promptSurface: {
+    background: '#f8fafc',
+    borderRadius: '12px',
+    padding: '16px',
+    marginBottom: '16px'
+  },
+  promptInput: {
+    width: '100%',
+    padding: '14px 16px',
+    border: '2px solid #e2e8f0',
+    borderRadius: '10px',
+    fontSize: '14px',
+    resize: 'none',
+    fontFamily: 'inherit',
+    outline: 'none',
+    transition: 'border-color 0.2s ease'
+  },
+  promptBtn: {
+    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+    color: '#fff',
+    border: 'none',
+    padding: '12px 24px',
+    borderRadius: '10px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    fontSize: '14px',
+    marginTop: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+  },
+  samplePromptCard: {
+    background: '#fff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '8px',
+    padding: '12px',
+    marginBottom: '8px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    color: '#475569',
+    transition: 'all 0.2s ease'
+  },
+  agentResponse: {
+    background: '#f0fdf4',
+    border: '1px solid #86efac',
+    borderRadius: '12px',
+    padding: '16px',
+    marginBottom: '12px'
+  },
+  responseHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginBottom: '12px',
+    fontSize: '13px',
+    fontWeight: '700',
+    color: '#166534'
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    fontSize: '13px'
+  },
+  th: {
+    textAlign: 'left',
+    padding: '10px 12px',
+    background: '#f1f5f9',
+    fontWeight: '700',
+    color: '#475569',
+    borderBottom: '2px solid #e2e8f0'
+  },
+  td: {
+    padding: '10px 12px',
+    borderBottom: '1px solid #e2e8f0'
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px'
+  },
+  formGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px'
+  },
+  label: {
+    fontSize: '13px',
+    fontWeight: '700',
+    color: '#374151'
+  },
+  input: {
+    padding: '12px 14px',
+    border: '2px solid #e2e8f0',
+    borderRadius: '8px',
+    fontSize: '14px',
+    outline: 'none',
+    transition: 'border-color 0.2s ease'
+  },
+  select: {
+    padding: '12px 14px',
+    border: '2px solid #e2e8f0',
+    borderRadius: '8px',
+    fontSize: '14px',
+    background: '#fff',
+    cursor: 'pointer'
+  },
+  configBox: {
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '10px',
+    padding: '16px',
+    marginTop: '12px'
+  },
+  configTitle: {
+    fontSize: '13px',
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: '12px'
+  },
+  actionBtns: {
+    display: 'flex',
+    gap: '12px',
+    marginTop: '20px'
+  },
+  btnPrimary: {
+    background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+    color: '#fff',
+    border: 'none',
+    padding: '14px 28px',
+    borderRadius: '10px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    fontSize: '14px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px'
+  },
+  btnSecondary: {
+    background: '#64748b',
+    color: '#fff',
+    border: 'none',
+    padding: '14px 28px',
+    borderRadius: '10px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    fontSize: '14px'
+  },
+  evidencePanel: {
+    maxHeight: '400px',
+    overflowY: 'auto'
+  }
+};
+
+// Status colors and labels
+const statusConfig = {
+  pending_review: { bg: '#fef3c7', color: '#92400e', label: 'Pending Review' },
+  approved: { bg: '#dcfce7', color: '#166534', label: 'Approved' },
+  rejected: { bg: '#fee2e2', color: '#991b1b', label: 'Rejected' },
+  in_progress: { bg: '#dbeafe', color: '#1e40af', label: 'In Progress' }
+};
+
+// Score color
+const getScoreColor = (score) => {
+  if (score >= 90) return { bg: '#dcfce7', color: '#166534' };
+  if (score >= 80) return { bg: '#dbeafe', color: '#1e40af' };
+  if (score >= 70) return { bg: '#fef3c7', color: '#92400e' };
+  return { bg: '#fee2e2', color: '#991b1b' };
+};
+
+// ==================== COMPONENTS ====================
+
+// Header Component
+const Header = ({ state, dispatch }) => (
+  <header style={styles.header}>
+    <div style={styles.logo}>
+      <div>
+        <div style={styles.logoText}>
+          audit<span style={styles.logoAccent}>X</span>
+        </div>
+        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', letterSpacing: '2px' }}>
+          AZURE SPECIALIZATION AUDIT PLATFORM
+        </div>
+      </div>
+    </div>
+    
+    <div style={styles.personaSwitch}>
+      <button
+        style={{
+          ...styles.personaBtn,
+          ...(state.currentPersona === 'auditor' ? styles.personaBtnActive : styles.personaBtnInactive)
+        }}
+        onClick={() => dispatch({ type: ACTIONS.SET_PERSONA, payload: 'auditor' })}
+      >
+        🔍 Auditor Workbench
+      </button>
+      <button
+        style={{
+          ...styles.personaBtn,
+          ...(state.currentPersona === 'engineer' ? styles.personaBtnActive : styles.personaBtnInactive)
+        }}
+        onClick={() => dispatch({ type: ACTIONS.SET_PERSONA, payload: 'engineer' })}
+      >
+        ⚙️ Platform Engineer
+      </button>
+    </div>
+    
+    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div style={{ 
+        background: 'rgba(34, 197, 94, 0.2)', 
+        padding: '8px 16px', 
+        borderRadius: '20px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px'
+      }}>
+        <span style={{ width: '8px', height: '8px', background: '#22c55e', borderRadius: '50%' }}></span>
+        <span style={{ color: '#86efac', fontSize: '13px', fontWeight: '600' }}>
+          {state.stats.activeAgents} Agents Active
+        </span>
+      </div>
+      <div style={{
+        width: '40px',
+        height: '40px',
+        borderRadius: '50%',
+        background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: '16px'
+      }}>
+        PS
+      </div>
+    </div>
+  </header>
+);
+
+// Stats Dashboard Component
+const StatsDashboard = ({ stats }) => (
+  <div style={styles.statsGrid}>
+    <div style={{ ...styles.statCard, background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' }}>
+      <div style={{ ...styles.statValue, color: '#1d4ed8' }}>{stats.auditsLast30Days}</div>
+      <div style={{ ...styles.statLabel, color: '#3b82f6' }}>Audits (30 Days)</div>
+    </div>
+    <div style={{ ...styles.statCard, background: 'linear-gradient(135deg, #fefce8 0%, #fef3c7 100%)' }}>
+      <div style={{ ...styles.statValue, color: '#a16207' }}>{stats.pendingReview}</div>
+      <div style={{ ...styles.statLabel, color: '#ca8a04' }}>Pending Review</div>
+    </div>
+    <div style={{ ...styles.statCard, background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)' }}>
+      <div style={{ ...styles.statValue, color: '#166534' }}>{stats.approved}</div>
+      <div style={{ ...styles.statLabel, color: '#22c55e' }}>Approved</div>
+    </div>
+    <div style={{ ...styles.statCard, background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)' }}>
+      <div style={{ ...styles.statValue, color: '#991b1b' }}>{stats.rejected}</div>
+      <div style={{ ...styles.statLabel, color: '#ef4444' }}>Rejected</div>
+    </div>
+  </div>
+);
+
+// Audit Queue Component
+const AuditQueue = ({ audits, filterStatus, selectedAudit, dispatch }) => {
+  const filters = [
+    { key: 'all', label: 'All' },
+    { key: 'pending_review', label: 'Pending Review' },
+    { key: 'approved', label: 'Approved' },
+    { key: 'rejected', label: 'Rejected' },
+    { key: 'in_progress', label: 'In Progress' }
+  ];
+  
+  const filteredAudits = filterStatus === 'all' 
+    ? audits 
+    : audits.filter(a => a.status === filterStatus);
+  
+  return (
+    <div>
+      <div style={styles.filterTabs}>
+        {filters.map(f => (
+          <button
+            key={f.key}
+            style={{
+              ...styles.filterTab,
+              ...(filterStatus === f.key ? styles.filterTabActive : {})
+            }}
+            onClick={() => dispatch({ type: ACTIONS.SET_FILTER, payload: f.key })}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+      
+      <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+        {filteredAudits.map(audit => {
+          const status = statusConfig[audit.status];
+          const scoreColor = getScoreColor(audit.complianceScore);
+          const isSelected = selectedAudit?.id === audit.id;
+          
+          return (
+            <div
+              key={audit.id}
+              style={{
+                ...styles.auditItem,
+                ...(isSelected ? styles.auditItemSelected : {})
+              }}
+              onClick={() => dispatch({ type: ACTIONS.SELECT_AUDIT, payload: audit })}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={styles.auditName}>{audit.name}</div>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ 
+                      ...styles.badge, 
+                      background: status.bg, 
+                      color: status.color 
+                    }}>
+                      {status.label}
+                    </span>
+                    <span style={{ 
+                      ...styles.badge, 
+                      background: '#f1f5f9', 
+                      color: '#475569' 
+                    }}>
+                      {audit.type}
+                    </span>
+                  </div>
+                  <div style={styles.auditMeta}>
+                    <span>📅 {audit.dueDate}</span>
+                    <span>📋 {audit.evidenceItems} evidence</span>
+                    <span>💼 {audit.workloads} workloads</span>
+                  </div>
+                  <div>
+                    {audit.certifications.map(cert => (
+                      <span key={cert} style={styles.certBadge}>{cert}</span>
+                    ))}
+                  </div>
+                </div>
+                <div style={{
+                  ...styles.scoreCircle,
+                  background: scoreColor.bg,
+                  color: scoreColor.color
+                }}>
+                  {audit.complianceScore}%
+                </div>
+              </div>
+              {audit.assignedTo && (
+                <div style={{ 
+                  marginTop: '10px', 
+                  fontSize: '12px', 
+                  color: '#64748b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  👤 Assigned to: <strong>{audit.assignedTo}</strong>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// Sample Prompts Panel
+const SamplePromptsPanel = ({ samplePrompts, onPromptSelect }) => (
+  <div>
+    {Object.entries(samplePrompts).map(([category, prompts]) => (
+      <div key={category} style={{ marginBottom: '20px' }}>
+        <div style={{ 
+          fontSize: '13px', 
+          fontWeight: '700', 
+          color: '#1e3a5f',
+          marginBottom: '10px',
+          padding: '8px 12px',
+          background: '#f1f5f9',
+          borderRadius: '6px'
+        }}>
+          {category}
+        </div>
+        {prompts.map((prompt, idx) => (
+          <div
+            key={idx}
+            style={styles.samplePromptCard}
+            onClick={() => onPromptSelect(prompt)}
+          >
+            💬 {prompt}
+          </div>
+        ))}
+      </div>
+    ))}
+  </div>
+);
+
+// Evidence Viewer Component
+const EvidenceViewer = ({ audit }) => {
+  if (!audit) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        alignItems: 'center', 
+        justifyContent: 'center',
+        padding: '60px 20px',
+        color: '#94a3b8'
+      }}>
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <div style={{ marginTop: '16px', fontWeight: '600' }}>Select an audit to view evidence</div>
+      </div>
+    );
+  }
+  
+  return (
+    <div style={styles.evidencePanel}>
+      <div style={{ marginBottom: '20px' }}>
+        <h4 style={{ margin: '0 0 12px 0', color: '#1e293b' }}>Workload Evidence</h4>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th style={styles.th}>Workload Name</th>
+              <th style={styles.th}>Start Date</th>
+              <th style={styles.th}>Status</th>
+              <th style={styles.th}>Uptime</th>
+            </tr>
+          </thead>
+          <tbody>
+            {audit.workloadDetails.map((w, idx) => (
+              <tr key={idx}>
+                <td style={styles.td}>{w.name}</td>
+                <td style={styles.td}>{w.startDate}</td>
+                <td style={styles.td}>
+                  <span style={{
+                    ...styles.badge,
+                    background: '#dcfce7',
+                    color: '#166534'
+                  }}>{w.status}</span>
+                </td>
+                <td style={styles.td}>{w.uptime}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+// Agent Response Component
+const AgentResponse = ({ prompt, audit }) => {
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 1500);
+    return () => clearTimeout(timer);
+  }, []);
+  
+  if (loading) {
+    return (
+      <div style={{ ...styles.agentResponse, background: '#f8fafc', borderColor: '#e2e8f0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className="spinner" style={{
+            width: '20px',
+            height: '20px',
+            border: '3px solid #e2e8f0',
+            borderTopColor: '#3b82f6',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <span style={{ color: '#64748b', fontWeight: '600' }}>Foundry IQ Agent analyzing evidence...</span>
+        </div>
+      </div>
+    );
+  }
+  
+  // Generate mock response based on prompt
+  const generateResponse = () => {
+    if (prompt.toLowerCase().includes('workload') && prompt.toLowerCase().includes('12-month')) {
+      return {
+        title: 'Workload Runtime Analysis',
+        content: audit ? (
+          <div>
+            <p style={{ marginBottom: '12px' }}>Found <strong>{audit.workloadDetails.length}</strong> workloads meeting the 12-month runtime requirement:</p>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Workload</th>
+                  <th style={styles.th}>Runtime</th>
+                  <th style={styles.th}>Uptime %</th>
+                  <th style={styles.th}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {audit.workloadDetails.slice(0, 2).map((w, i) => {
+                  const start = new Date(w.startDate);
+                  const months = Math.floor((new Date() - start) / (1000 * 60 * 60 * 24 * 30));
+                  return (
+                    <tr key={i}>
+                      <td style={styles.td}>{w.name}</td>
+                      <td style={styles.td}>{months} months</td>
+                      <td style={styles.td}>{w.uptime}%</td>
+                      <td style={styles.td}>
+                        <span style={{ color: months >= 12 ? '#16a34a' : '#dc2626' }}>
+                          {months >= 12 ? '✓ Compliant' : '⚠ Below 12 months'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : 'Select an audit to view workload analysis.'
+      };
+    }
+    
+    if (prompt.toLowerCase().includes('employee') || prompt.toLowerCase().includes('certification')) {
+      return {
+        title: 'Employee Certification Analysis',
+        content: audit ? (
+          <div>
+            <p style={{ marginBottom: '12px' }}>
+              <strong>{audit.employees.length}</strong> certified employees found for {audit.name}:
+            </p>
+            {audit.employees.map((e, i) => (
+              <div key={i} style={{ 
+                padding: '12px', 
+                background: '#f8fafc', 
+                borderRadius: '8px',
+                marginBottom: '8px'
+              }}>
+                <div style={{ fontWeight: '700' }}>{e.name}</div>
+                <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+                  <span style={styles.certBadge}>{e.cert}</span>
+                  Certified: {e.certDate} | Expires: {e.expiryDate}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : 'Select an audit to view certification details.'
+      };
+    }
+    
+    if (prompt.toLowerCase().includes('score') || prompt.toLowerCase().includes('compliance')) {
+      return {
+        title: 'Compliance Score Methodology',
+        content: audit ? (
+          <div>
+            <div style={{ 
+              fontSize: '24px', 
+              fontWeight: '800', 
+              color: getScoreColor(audit.complianceScore).color,
+              marginBottom: '12px'
+            }}>
+              Overall Score: {audit.complianceScore}%
+            </div>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Criteria</th>
+                  <th style={styles.th}>Weight</th>
+                  <th style={styles.th}>Score</th>
+                  <th style={styles.th}>Weighted</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={styles.td}>Workload Runtime (12+ months)</td>
+                  <td style={styles.td}>40%</td>
+                  <td style={styles.td}>{Math.min(100, audit.workloads * 30)}%</td>
+                  <td style={styles.td}>{(Math.min(100, audit.workloads * 30) * 0.4).toFixed(1)}%</td>
+                </tr>
+                <tr>
+                  <td style={styles.td}>Employee Certifications</td>
+                  <td style={styles.td}>35%</td>
+                  <td style={styles.td}>{Math.min(100, audit.employees.length * 50)}%</td>
+                  <td style={styles.td}>{(Math.min(100, audit.employees.length * 50) * 0.35).toFixed(1)}%</td>
+                </tr>
+                <tr>
+                  <td style={styles.td}>Evidence Documentation</td>
+                  <td style={styles.td}>25%</td>
+                  <td style={styles.td}>{Math.min(100, audit.evidenceItems * 5)}%</td>
+                  <td style={styles.td}>{(Math.min(100, audit.evidenceItems * 5) * 0.25).toFixed(1)}%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        ) : 'Select an audit to view score breakdown.'
+      };
+    }
+    
+    return {
+      title: 'Agent Response',
+      content: <p>Analysis complete. The audit evidence has been verified against Microsoft Learn transcripts and certification records. All data points have been cross-referenced with the partner portal submissions.</p>
+    };
+  };
+  
+  const response = generateResponse();
+  
+  return (
+    <div style={styles.agentResponse}>
+      <div style={styles.responseHeader}>
+        <span style={{
+          width: '24px',
+          height: '24px',
+          background: '#22c55e',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '12px'
+        }}>🤖</span>
+        Foundry IQ Agent: {response.title}
+      </div>
+      {response.content}
+    </div>
+  );
+};
+
+// Prompt Surface Component
+const PromptSurface = ({ selectedAudit, promptHistory, dispatch, samplePrompts }) => {
+  const [prompt, setPrompt] = useState('');
+  
+  const handleSubmit = () => {
+    if (!prompt.trim()) return;
+    dispatch({ type: ACTIONS.ADD_PROMPT, payload: { text: prompt, timestamp: new Date().toISOString() } });
+    setPrompt('');
+  };
+  
+  const handleSamplePrompt = (text) => {
+    setPrompt(text);
+  };
+  
+  return (
+    <div>
+      <div style={styles.promptSurface}>
+        <textarea
+          style={styles.promptInput}
+          placeholder="Enter verification prompt... e.g., 'Show employee skills and certification dates for this audit'"
+          rows={3}
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && e.ctrlKey && handleSubmit()}
+        />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button style={styles.promptBtn} onClick={handleSubmit}>
+            <span>🚀</span> Execute Prompt
+          </button>
+          {promptHistory.length > 0 && (
+            <button 
+              style={{ ...styles.btnSecondary, padding: '8px 16px', fontSize: '12px' }}
+              onClick={() => dispatch({ type: ACTIONS.CLEAR_PROMPTS })}
+            >
+              Clear History
+            </button>
+          )}
+        </div>
+      </div>
+      
+      {promptHistory.length > 0 && (
+        <div style={{ marginBottom: '20px' }}>
+          <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#475569' }}>
+            Agent Responses ({promptHistory.length})
+          </h4>
+          {promptHistory.map((p, idx) => (
+            <div key={idx}>
+              <div style={{
+                background: '#eff6ff',
+                padding: '12px',
+                borderRadius: '8px',
+                marginBottom: '8px',
+                fontSize: '13px'
+              }}>
+                <span style={{ fontWeight: '700', color: '#1d4ed8' }}>You:</span> {p.text}
+              </div>
+              <AgentResponse prompt={p.text} audit={selectedAudit} />
+            </div>
+          ))}
+        </div>
+      )}
+      
+      <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#475569' }}>
+        📋 Sample Auditor Verification Prompts
+      </h4>
+      <SamplePromptsPanel samplePrompts={samplePrompts} onPromptSelect={handleSamplePrompt} />
+    </div>
+  );
+};
+
+// Platform Engineer Console Component
+const PlatformEngineerConsole = ({ state, dispatch }) => {
+  const [formData, setFormData] = useState({
+    specializationType: '',
+    requiredModules: '',
+    workloadCriteria: '',
+    certificationReq: '',
+    numAgents: 8,
+    complianceThreshold: 80,
+    auditFrequency: 'Quarterly',
+    verificationPeriod: '12 months'
+  });
+  
+  const [engineerPrompt, setEngineerPrompt] = useState('');
+  const [deploymentStatus, setDeploymentStatus] = useState(null);
+  
+  const specializationTypes = [
+    'Azure AI Platform Specialization',
+    'Azure Data & Analytics Specialization',
+    'Azure Security Specialization',
+    'Kubernetes on Azure Specialization',
+    'SAP on Azure Specialization',
+    'Azure VMware Solution Specialization',
+    'Azure AVD Specialization',
+    'Network Services on Azure Specialization',
+    'HCI with Azure Local Specialization',
+    'DevOps with Azure and GitHub',
+    'Digital Sovereignty Specialization'
+  ];
+  
+  const configTemplates = {
+    'Azure AI Platform Specialization': {
+      requiredModules: 'AI-102, AI-900, DP-100',
+      workloadCriteria: 'Minimum 3 AI/ML workloads, 12 months runtime',
+      certificationReq: 'At least 2 employees with AI-102, DP-100, or AI-900'
+    },
+    'Azure Data & Analytics Specialization': {
+      requiredModules: 'DP-203, DP-900',
+      workloadCriteria: '3+ data platform workloads (Synapse, Data Factory, Databricks) for 12 months',
+      certificationReq: 'Minimum 2 employees with DP-203, DP-900, or DP-100'
+    }
+  };
+  
+  const handleSpecializationChange = (type) => {
+    setFormData(prev => ({
+      ...prev,
+      specializationType: type,
+      ...(configTemplates[type] || {})
+    }));
+  };
+  
+  const handleDeploy = () => {
+    setDeploymentStatus('deploying');
+    setTimeout(() => {
+      setDeploymentStatus('success');
+      dispatch({
+        type: ACTIONS.CREATE_WORKFLOW,
+        payload: {
+          id: `WF-${Date.now()}`,
+          name: formData.specializationType,
+          ...formData
+        }
+      });
+    }, 2000);
+  };
+  
+  const sampleEngineerPrompts = [
+    {
+      title: 'Create Azure AI Specialization Audit',
+      prompt: `Create a new audit type for Azure AI Specialization with:
+- Required Modules: AI-102 (Azure AI Solution), AI-900 (Azure AI Fundamentals), DP-100
+- Workload Criteria: Minimum 3 AI/ML workloads running for at least 12 months
+- Employee Certification: At least 2 employees with AI-102, DP-100, or AI-900
+- Verification Period: Rolling 12-month window
+- Audit Frequency: Quarterly`
+    },
+    {
+      title: 'Create Data & Analytics Audit',
+      prompt: `Establish new audit type for Azure Data & Analytics Specialization:
+- Required Modules: DP-203 (Data Engineering), DP-900 (Data Fundamentals)
+- Workload Criteria: 3+ data platform workloads (Synapse, Data Factory, Databricks) for 12 months
+- Employee Certification: Minimum 2 employees with DP-203, DP-900, or DP-100
+- Performance Metrics: Query performance, data pipeline SLAs
+- Review Cycle: Quarterly with annual comprehensive audit`
+    }
+  ];
+  
+  return (
+    <div style={{ ...styles.mainContainer, gridTemplateColumns: '1fr 1fr' }}>
+      {/* Deploy Workflow Panel */}
+      <div style={styles.card}>
+        <div style={styles.cardHeader}>
+          <div>
+            <h3 style={styles.cardTitle}>Platform Engineer Console</h3>
+            <p style={styles.cardSubtitle}>Configure and deploy new Azure Specialization audit workflows</p>
+          </div>
+        </div>
+        <div style={styles.cardBody}>
+          <div style={styles.form}>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Specialization Type</label>
+              <select
+                style={styles.select}
+                value={formData.specializationType}
+                onChange={(e) => handleSpecializationChange(e.target.value)}
+              >
+                <option value="">Select Specialization...</option>
+                {specializationTypes.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+            
+            {formData.specializationType && (
+              <div style={styles.configBox}>
+                <div style={styles.configTitle}>
+                  Example: {formData.specializationType} Configuration
+                </div>
+                <div style={{ fontSize: '13px', color: '#475569' }}>
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>Required Modules:</strong>
+                    <div style={{ marginTop: '4px' }}>
+                      {(formData.requiredModules || 'AI-102, AI-900').split(', ').map(m => (
+                        <span key={m} style={styles.certBadge}>{m}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>Workload Criteria:</strong> {formData.workloadCriteria || 'Minimum 3 workloads, 12 months runtime'}
+                  </div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>Employee Certification:</strong> {formData.certificationReq || 'At least 2 employees certified'}
+                  </div>
+                  <div>
+                    <strong>Audit Frequency:</strong> {formData.auditFrequency}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Number of Evaluation Agents</label>
+              <input
+                type="number"
+                style={styles.input}
+                value={formData.numAgents}
+                onChange={(e) => setFormData(prev => ({ ...prev, numAgents: parseInt(e.target.value) }))}
+                min={1}
+                max={20}
+              />
+              <span style={{ fontSize: '12px', color: '#64748b' }}>
+                Each agent runs specific audit prompts in parallel
+              </span>
+            </div>
+            
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Compliance Threshold (%)</label>
+              <input
+                type="number"
+                style={styles.input}
+                value={formData.complianceThreshold}
+                onChange={(e) => setFormData(prev => ({ ...prev, complianceThreshold: parseInt(e.target.value) }))}
+                min={0}
+                max={100}
+              />
+              <span style={{ fontSize: '12px', color: '#64748b' }}>
+                Minimum score required for approval
+              </span>
+            </div>
+            
+            <div style={styles.actionBtns}>
+              <button style={styles.btnSecondary}>Cancel</button>
+              <button 
+                style={styles.btnPrimary}
+                onClick={handleDeploy}
+                disabled={!formData.specializationType}
+              >
+                {deploymentStatus === 'deploying' ? (
+                  <>⏳ Deploying...</>
+                ) : deploymentStatus === 'success' ? (
+                  <>✅ Deployed!</>
+                ) : (
+                  <>🚀 Deploy Agents & Start Audit</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Prompt Configuration Panel */}
+      <div style={styles.card}>
+        <div style={styles.cardHeader}>
+          <div>
+            <h3 style={styles.cardTitle}>Workflow Configuration via Prompts</h3>
+            <p style={styles.cardSubtitle}>Configure audit workflows using natural language</p>
+          </div>
+        </div>
+        <div style={styles.cardBody}>
+          <div style={styles.promptSurface}>
+            <textarea
+              style={{ ...styles.promptInput, minHeight: '120px' }}
+              placeholder="Describe the audit workflow you want to create..."
+              value={engineerPrompt}
+              onChange={(e) => setEngineerPrompt(e.target.value)}
+            />
+            <button style={styles.promptBtn}>
+              <span>⚙️</span> Configure Workflow
+            </button>
+          </div>
+          
+          <h4 style={{ margin: '20px 0 12px 0', fontSize: '14px', color: '#475569' }}>
+            📋 Sample Configuration Prompts
+          </h4>
+          {sampleEngineerPrompts.map((p, idx) => (
+            <div
+              key={idx}
+              style={{
+                ...styles.samplePromptCard,
+                padding: '16px'
+              }}
+              onClick={() => setEngineerPrompt(p.prompt)}
+            >
+              <div style={{ fontWeight: '700', marginBottom: '8px', color: '#1e3a5f' }}>
+                {p.title}
+              </div>
+              <div style={{ 
+                fontSize: '12px', 
+                color: '#64748b',
+                whiteSpace: 'pre-wrap',
+                lineHeight: '1.5'
+              }}>
+                {p.prompt}
+              </div>
+            </div>
+          ))}
+          
+          <div style={{ marginTop: '24px' }}>
+            <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#475569' }}>
+              🔧 Active Workflow Templates
+            </h4>
+            {state.workflowTemplates.map(wf => (
+              <div key={wf.id} style={{
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                padding: '12px',
+                marginBottom: '8px'
+              }}>
+                <div style={{ fontWeight: '700', color: '#1e3a5f', marginBottom: '4px' }}>
+                  {wf.name}
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748b' }}>
+                  Modules: {wf.requiredModules?.join(', ')} | Frequency: {wf.auditFrequency}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Auditor Workbench Component
+const AuditorWorkbench = ({ state, dispatch }) => (
+  <>
+    {/* Stats Banner */}
+    <div style={{
+      padding: '16px 20px',
+      background: '#fff',
+      borderBottom: '2px solid #e2e8f0',
+      margin: '0 20px'
+    }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '12px'
+      }}>
+        <div>
+          <h2 style={{
+            margin: 0,
+            fontSize: '20px',
+            fontWeight: '700',
+            color: '#1e3a5f'
+          }}>
+            🔍 Auditor Workbench
+          </h2>
+          <p style={{
+            margin: '4px 0 0 0',
+            fontSize: '13px',
+            color: '#64748b'
+          }}>
+            Review and verify Azure specialization compliance evidence
+          </p>
+        </div>
+      </div>
+      <StatsDashboard stats={state.stats} />
+    </div>
+
+    <div style={styles.mainContainer}>
+      {/* Left Panel - Audit Queue */}
+      <div style={styles.card}>
+        <div style={styles.cardHeader}>
+          <div>
+            <h3 style={styles.cardTitle}>📋 Audit Queue</h3>
+            <p style={styles.cardSubtitle}>Select an audit to review evidence and verify compliance</p>
+          </div>
+        </div>
+        <div style={styles.cardBody}>
+          <AuditQueue
+            audits={state.audits}
+            filterStatus={state.filterStatus}
+            selectedAudit={state.selectedAudit}
+            dispatch={dispatch}
+          />
+        </div>
+      </div>
+    
+    {/* Center Panel - Evidence Viewer */}
+    <div style={styles.card}>
+      <div style={styles.cardHeader}>
+        <div>
+          <h3 style={styles.cardTitle}>
+            {state.selectedAudit ? state.selectedAudit.name : 'Evidence Viewer'}
+          </h3>
+          <p style={styles.cardSubtitle}>
+            {state.selectedAudit 
+              ? `Partner: ${state.selectedAudit.partner} | Last Reviewed: ${state.selectedAudit.lastReviewed}`
+              : 'Select an audit from the queue'
+            }
+          </p>
+        </div>
+        {state.selectedAudit && (
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button 
+              style={{ ...styles.btnPrimary, padding: '10px 16px', fontSize: '13px' }}
+              onClick={() => dispatch({ 
+                type: ACTIONS.UPDATE_AUDIT_STATUS, 
+                payload: { id: state.selectedAudit.id, status: 'approved' }
+              })}
+            >
+              ✓ Approve
+            </button>
+            <button 
+              style={{ ...styles.btnSecondary, padding: '10px 16px', fontSize: '13px', background: '#dc2626' }}
+              onClick={() => dispatch({ 
+                type: ACTIONS.UPDATE_AUDIT_STATUS, 
+                payload: { id: state.selectedAudit.id, status: 'rejected' }
+              })}
+            >
+              ✗ Reject
+            </button>
+          </div>
+        )}
+      </div>
+      <div style={styles.cardBody}>
+        <EvidenceViewer audit={state.selectedAudit} />
+      </div>
+    </div>
+    
+    {/* Right Panel - Prompt Surface */}
+    <div style={styles.card}>
+      <div style={styles.cardHeader}>
+        <div>
+          <h3 style={styles.cardTitle}>AI Verification Agent</h3>
+          <p style={styles.cardSubtitle}>Query evidence using natural language prompts</p>
+        </div>
+      </div>
+      <div style={{ ...styles.cardBody, maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
+        <PromptSurface
+          selectedAudit={state.selectedAudit}
+          promptHistory={state.promptHistory}
+          dispatch={dispatch}
+          samplePrompts={state.samplePrompts}
+        />
+      </div>
+    </div>
+  </div>
+  </>
+);
+
+// ==================== MAIN APP ====================
+export default function AuditXApp() {
+  const [state, dispatch] = useReducer(reducer, initialState);
+  
+  return (
+    <div style={styles.app}>
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        * {
+          box-sizing: border-box;
+        }
+        ::-webkit-scrollbar {
+          width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+      `}</style>
+      
+      <Header state={state} dispatch={dispatch} />
+      
+      {state.currentPersona === 'auditor' ? (
+        <AuditorWorkbench state={state} dispatch={dispatch} />
+      ) : (
+        <PlatformEngineerConsole state={state} dispatch={dispatch} />
+      )}
+      
+      {/* Footer */}
+      <footer style={{
+        padding: '16px 32px',
+        borderTop: '1px solid #e2e8f0',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        background: '#fff',
+        fontSize: '13px',
+        color: '#64748b'
+      }}>
+        <div>Confidential © 2026 Persistent Systems</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ color: '#f97316', fontWeight: '700' }}>Re(AI)magining</span>
+          <span>the World</span>
+        </div>
+      </footer>
+    </div>
+  );
+}
