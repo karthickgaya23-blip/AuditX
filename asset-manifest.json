@@ -1,15 +1,13 @@
 {
   "files": {
     "main.css": "/AuditX/static/css/main.a008c0dd.css",
-    "main.js": "/AuditX/static/js/main.3ba098a8.js",
-    "static/js/453.4de681b5.chunk.js": "/AuditX/static/js/453.4de681b5.chunk.js",
+    "main.js": "/AuditX/static/js/main.a7b72cb7.js",
     "index.html": "/AuditX/index.html",
     "main.a008c0dd.css.map": "/AuditX/static/css/main.a008c0dd.css.map",
-    "main.3ba098a8.js.map": "/AuditX/static/js/main.3ba098a8.js.map",
-    "453.4de681b5.chunk.js.map": "/AuditX/static/js/453.4de681b5.chunk.js.map"
+    "main.a7b72cb7.js.map": "/AuditX/static/js/main.a7b72cb7.js.map"
   },
   "entrypoints": [
     "static/css/main.a008c0dd.css",
-    "static/js/main.3ba098a8.js"
+    "static/js/main.a7b72cb7.js"
   ]
 }
