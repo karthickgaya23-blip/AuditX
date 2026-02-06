@@ -1479,22 +1479,7 @@ const PlatformEngineerConsole = ({ state, dispatch }) => {
                 </div>
               </div>
             )}
-            
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Number of Evaluation Agents</label>
-              <input
-                type="number"
-                style={styles.input}
-                value={formData.numAgents}
-                onChange={(e) => setFormData(prev => ({ ...prev, numAgents: parseInt(e.target.value) }))}
-                min={1}
-                max={20}
-              />
-              <span style={{ fontSize: '12px', color: '#64748b' }}>
-                Each agent runs specific audit prompts in parallel
-              </span>
-            </div>
-            
+
             <div style={styles.formGroup}>
               <label style={styles.label}>Compliance Threshold (%)</label>
               <input
