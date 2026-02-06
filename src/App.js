@@ -17,6 +17,7 @@ const initialState = {
       status: 'pending_review',
       complianceScore: 87,
       dueDate: '2026-01-31',
+      slaDate: '2026-02-13',
       evidenceItems: 18,
       workloads: 3,
       certifications: ['AI-102', 'DP-100'],
@@ -42,6 +43,7 @@ const initialState = {
       status: 'approved',
       complianceScore: 94,
       dueDate: '2026-01-30',
+      slaDate: '2026-02-12',
       evidenceItems: 22,
       workloads: 4,
       certifications: ['DP-203', 'DP-900'],
@@ -67,6 +69,7 @@ const initialState = {
       status: 'in_progress',
       complianceScore: 82,
       dueDate: '2026-01-31',
+      slaDate: '2026-02-14',
       evidenceItems: 12,
       workloads: 2,
       certifications: ['AZ-305'],
@@ -89,6 +92,7 @@ const initialState = {
       status: 'pending_review',
       complianceScore: 76,
       dueDate: '2026-01-29',
+      slaDate: '2026-02-11',
       evidenceItems: 15,
       workloads: 2,
       certifications: ['AZ-120'],
@@ -112,6 +116,7 @@ const initialState = {
       status: 'rejected',
       complianceScore: 58,
       dueDate: '2026-01-28',
+      slaDate: '2026-02-10',
       evidenceItems: 10,
       workloads: 1,
       certifications: ['AZ-500'],
@@ -133,6 +138,7 @@ const initialState = {
       status: 'approved',
       complianceScore: 91,
       dueDate: '2026-01-27',
+      slaDate: '2026-02-09',
       evidenceItems: 20,
       workloads: 5,
       certifications: ['AZ-400'],
@@ -159,6 +165,7 @@ const initialState = {
       status: 'pending_review',
       complianceScore: 79,
       dueDate: '2026-02-05',
+      slaDate: '2026-02-17',
       evidenceItems: 14,
       workloads: 2,
       certifications: ['AZ-800', 'AZ-801'],
@@ -181,6 +188,7 @@ const initialState = {
       status: 'in_progress',
       complianceScore: 85,
       dueDate: '2026-02-10',
+      slaDate: '2026-02-22',
       evidenceItems: 16,
       workloads: 3,
       certifications: ['AZ-700'],
@@ -205,6 +213,7 @@ const initialState = {
       status: 'approved',
       complianceScore: 92,
       dueDate: '2026-02-15',
+      slaDate: '2026-02-27',
       evidenceItems: 19,
       workloads: 3,
       certifications: ['AZ-305', 'VCP-DCV'],
@@ -229,6 +238,7 @@ const initialState = {
       status: 'pending_review',
       complianceScore: 81,
       dueDate: '2026-02-08',
+      slaDate: '2026-02-20',
       evidenceItems: 13,
       workloads: 2,
       certifications: ['AZ-140'],
@@ -251,6 +261,7 @@ const initialState = {
       status: 'in_progress',
       complianceScore: 88,
       dueDate: '2026-02-12',
+      slaDate: '2026-02-24',
       evidenceItems: 21,
       workloads: 4,
       certifications: ['DP-300', 'AZ-900'],
@@ -276,6 +287,7 @@ const initialState = {
       status: 'approved',
       complianceScore: 90,
       dueDate: '2026-02-20',
+      slaDate: '2026-03-04',
       evidenceItems: 17,
       workloads: 3,
       certifications: ['AZ-305', 'AZ-204'],
@@ -300,6 +312,7 @@ const initialState = {
       status: 'pending_review',
       complianceScore: 84,
       dueDate: '2026-02-18',
+      slaDate: '2026-03-02',
       evidenceItems: 15,
       workloads: 2,
       certifications: ['DP-203', 'DP-500'],
@@ -323,6 +336,7 @@ const initialState = {
       status: 'in_progress',
       complianceScore: 77,
       dueDate: '2026-02-25',
+      slaDate: '2026-03-09',
       evidenceItems: 24,
       workloads: 3,
       certifications: ['SC-900', 'AZ-500'],
@@ -961,7 +975,8 @@ const AuditQueue = ({ audits, filterStatus, selectedAudit, dispatch }) => {
                     </span>
                   </div>
                   <div style={styles.auditMeta}>
-                    <span>📅 {audit.dueDate}</span>
+                    <span>📅 Due: {audit.dueDate}</span>
+                    <span>⏰ SLA: {audit.slaDate}</span>
                     <span>📋 {audit.evidenceItems} evidence</span>
                     <span>💼 {audit.workloads} workloads</span>
                   </div>
