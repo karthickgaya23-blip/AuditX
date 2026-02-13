@@ -1,4 +1,5 @@
-import React, { useState, useReducer, useCallback, useEffect } from 'react';
+import React, { useState, useReducer, useEffect } from 'react';
+import FileUpload from './components/FileUpload';
 // ==================== REDUX-LIKE STATE MANAGEMENT ====================
 const initialState = {
   currentPersona: 'auditor',
@@ -853,6 +854,15 @@ const Header = ({ state, dispatch }) => (
       >
         ⚙️ Platform Engineer
       </button>
+      <button
+        style={{
+          ...styles.personaBtn,
+          ...(state.currentPersona === 'partner' ? styles.personaBtnActive : styles.personaBtnInactive)
+        }}
+        onClick={() => dispatch({ type: ACTIONS.SET_PERSONA, payload: 'partner' })}
+      >
+        🏢 Partner Portal
+      </button>
     </div>
     
     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -1044,14 +1054,42 @@ const SamplePromptsPanel = ({ samplePrompts, onPromptSelect }) => (
   </div>
 );
 
-// Evidence Viewer Component
-const EvidenceViewer = ({ audit }) => {
+// Evidence Viewer Component with Tabs
+const EvidenceViewer = ({ audit, onUploadComplete }) => {
+  const [activeTab, setActiveTab] = useState('evidence');
+
+  const tabStyles = {
+    tabContainer: {
+      display: 'flex',
+      gap: '4px',
+      marginBottom: '20px',
+      borderBottom: '2px solid #e2e8f0',
+      paddingBottom: '0'
+    },
+    tab: {
+      padding: '12px 20px',
+      border: 'none',
+      background: 'transparent',
+      cursor: 'pointer',
+      fontSize: '14px',
+      fontWeight: '600',
+      color: '#64748b',
+      borderBottom: '2px solid transparent',
+      marginBottom: '-2px',
+      transition: 'all 0.2s ease'
+    },
+    tabActive: {
+      color: '#3b82f6',
+      borderBottomColor: '#3b82f6'
+    }
+  };
+
   if (!audit) {
     return (
-      <div style={{ 
-        display: 'flex', 
+      <div style={{
+        display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center', 
+        alignItems: 'center',
         justifyContent: 'center',
         padding: '60px 20px',
         color: '#94a3b8'
@@ -1063,38 +1101,118 @@ const EvidenceViewer = ({ audit }) => {
       </div>
     );
   }
-  
+
   return (
-    <div style={styles.evidencePanel}>
-      <div style={{ marginBottom: '20px' }}>
-        <h4 style={{ margin: '0 0 12px 0', color: '#1e293b' }}>Workload Evidence</h4>
-        <table style={styles.table}>
-          <thead>
-            <tr>
-              <th style={styles.th}>Workload Name</th>
-              <th style={styles.th}>Start Date</th>
-              <th style={styles.th}>Status</th>
-              <th style={styles.th}>Uptime</th>
-            </tr>
-          </thead>
-          <tbody>
-            {audit.workloadDetails.map((w, idx) => (
-              <tr key={idx}>
-                <td style={styles.td}>{w.name}</td>
-                <td style={styles.td}>{w.startDate}</td>
-                <td style={styles.td}>
-                  <span style={{
-                    ...styles.badge,
-                    background: '#dcfce7',
-                    color: '#166534'
-                  }}>{w.status}</span>
-                </td>
-                <td style={styles.td}>{w.uptime}%</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div>
+      {/* Tabs */}
+      <div style={tabStyles.tabContainer}>
+        <button
+          style={{
+            ...tabStyles.tab,
+            ...(activeTab === 'evidence' ? tabStyles.tabActive : {})
+          }}
+          onClick={() => setActiveTab('evidence')}
+        >
+          📋 Evidence
+        </button>
+        <button
+          style={{
+            ...tabStyles.tab,
+            ...(activeTab === 'upload' ? tabStyles.tabActive : {})
+          }}
+          onClick={() => setActiveTab('upload')}
+        >
+          ☁️ Upload Files
+        </button>
+        <button
+          style={{
+            ...tabStyles.tab,
+            ...(activeTab === 'certifications' ? tabStyles.tabActive : {})
+          }}
+          onClick={() => setActiveTab('certifications')}
+        >
+          🎓 Certifications
+        </button>
       </div>
+
+      {/* Tab Content */}
+      {activeTab === 'evidence' && (
+        <div style={styles.evidencePanel}>
+          <div style={{ marginBottom: '20px' }}>
+            <h4 style={{ margin: '0 0 12px 0', color: '#1e293b' }}>Workload Evidence</h4>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Workload Name</th>
+                  <th style={styles.th}>Start Date</th>
+                  <th style={styles.th}>Status</th>
+                  <th style={styles.th}>Uptime</th>
+                </tr>
+              </thead>
+              <tbody>
+                {audit.workloadDetails.map((w, idx) => (
+                  <tr key={idx}>
+                    <td style={styles.td}>{w.name}</td>
+                    <td style={styles.td}>{w.startDate}</td>
+                    <td style={styles.td}>
+                      <span style={{
+                        ...styles.badge,
+                        background: '#dcfce7',
+                        color: '#166534'
+                      }}>{w.status}</span>
+                    </td>
+                    <td style={styles.td}>{w.uptime}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'upload' && (
+        <FileUpload
+          auditId={audit.id}
+          auditName={audit.name}
+          onUploadComplete={onUploadComplete}
+        />
+      )}
+
+      {activeTab === 'certifications' && (
+        <div style={styles.evidencePanel}>
+          <div style={{ marginBottom: '20px' }}>
+            <h4 style={{ margin: '0 0 12px 0', color: '#1e293b' }}>Employee Certifications</h4>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Employee Name</th>
+                  <th style={styles.th}>Certification</th>
+                  <th style={styles.th}>Cert Date</th>
+                  <th style={styles.th}>Expiry Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {audit.employees.map((emp, idx) => (
+                  <tr key={idx}>
+                    <td style={styles.td}>{emp.name}</td>
+                    <td style={styles.td}>
+                      <span style={styles.certBadge}>{emp.cert}</span>
+                    </td>
+                    <td style={styles.td}>{emp.certDate}</td>
+                    <td style={styles.td}>
+                      <span style={{
+                        color: new Date(emp.expiryDate) < new Date() ? '#dc2626' : '#166534'
+                      }}>
+                        {emp.expiryDate}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1589,6 +1707,361 @@ const PlatformEngineerConsole = ({ state, dispatch }) => {
   );
 };
 
+// Partner Portal Component
+const PartnerPortal = ({ state, dispatch }) => {
+  const [selectedSpecialization, setSelectedSpecialization] = useState(null);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [submissionHistory, setSubmissionHistory] = useState([
+    { id: 'SUB-001', date: '2026-02-10', specialization: 'AI Platform on Microsoft Azure', files: 5, status: 'approved' },
+    { id: 'SUB-002', date: '2026-02-05', specialization: 'Analytics on Azure', files: 8, status: 'pending_review' },
+    { id: 'SUB-003', date: '2026-01-28', specialization: 'Kubernetes on Microsoft Azure', files: 3, status: 'rejected' }
+  ]);
+
+  const specializations = [
+    { id: 'ai-platform', name: 'AI Platform on Microsoft Azure Specialization', icon: '🤖', requiredDocs: ['Customer References', 'Workload Screenshots', 'Certification Proof', 'Architecture Diagrams'] },
+    { id: 'analytics', name: 'Analytics on Azure Specialization', icon: '📊', requiredDocs: ['Data Pipeline Configs', 'Synapse Workspaces', 'Performance Reports', 'Certification Proof'] },
+    { id: 'kubernetes', name: 'Kubernetes on Microsoft Azure Specialization', icon: '☸️', requiredDocs: ['AKS Cluster Configs', 'Deployment YAMLs', 'Monitoring Dashboards', 'Certification Proof'] },
+    { id: 'security', name: 'Azure Security Specialization', icon: '🔒', requiredDocs: ['Security Assessments', 'Sentinel Configs', 'Compliance Reports', 'Certification Proof'] },
+    { id: 'devops', name: 'DevOps with Azure and GitHub', icon: '🔄', requiredDocs: ['Pipeline Configs', 'CI/CD Evidence', 'GitHub Actions Logs', 'Certification Proof'] },
+    { id: 'sap', name: 'SAP on Microsoft Azure Specialization', icon: '💼', requiredDocs: ['SAP Landscape Diagrams', 'Performance Metrics', 'Migration Evidence', 'Certification Proof'] }
+  ];
+
+  const handleUploadComplete = (files) => {
+    setUploadedFiles(prev => [...prev, ...files]);
+  };
+
+  const handleSubmitEvidence = () => {
+    if (selectedSpecialization && uploadedFiles.length > 0) {
+      const newSubmission = {
+        id: `SUB-${Date.now()}`,
+        date: new Date().toISOString().split('T')[0],
+        specialization: selectedSpecialization.name,
+        files: uploadedFiles.length,
+        status: 'pending_review'
+      };
+      setSubmissionHistory(prev => [newSubmission, ...prev]);
+      setUploadedFiles([]);
+      setSelectedSpecialization(null);
+      alert('Evidence submitted successfully! Your submission is now pending review.');
+    }
+  };
+
+  const getStatusStyle = (status) => {
+    switch (status) {
+      case 'approved': return { background: '#dcfce7', color: '#166534' };
+      case 'rejected': return { background: '#fee2e2', color: '#991b1b' };
+      default: return { background: '#fef3c7', color: '#92400e' };
+    }
+  };
+
+  const portalStyles = {
+    container: {
+      padding: '24px',
+      maxWidth: '1400px',
+      margin: '0 auto'
+    },
+    header: {
+      marginBottom: '24px'
+    },
+    title: {
+      fontSize: '24px',
+      fontWeight: '700',
+      color: '#1e3a5f',
+      margin: '0 0 8px 0'
+    },
+    subtitle: {
+      fontSize: '14px',
+      color: '#64748b',
+      margin: 0
+    },
+    grid: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+      gap: '16px',
+      marginBottom: '24px'
+    },
+    specCard: {
+      background: '#fff',
+      borderRadius: '12px',
+      padding: '20px',
+      border: '2px solid #e2e8f0',
+      cursor: 'pointer',
+      transition: 'all 0.2s ease'
+    },
+    specCardSelected: {
+      borderColor: '#3b82f6',
+      background: '#eff6ff',
+      boxShadow: '0 4px 12px rgba(59, 130, 246, 0.15)'
+    },
+    specIcon: {
+      fontSize: '32px',
+      marginBottom: '12px'
+    },
+    specName: {
+      fontSize: '16px',
+      fontWeight: '700',
+      color: '#1e293b',
+      marginBottom: '8px'
+    },
+    specDocs: {
+      fontSize: '12px',
+      color: '#64748b'
+    },
+    uploadSection: {
+      background: '#fff',
+      borderRadius: '16px',
+      boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+      marginBottom: '24px',
+      overflow: 'hidden'
+    },
+    sectionHeader: {
+      padding: '20px 24px',
+      borderBottom: '1px solid #e2e8f0',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center'
+    },
+    sectionTitle: {
+      fontSize: '18px',
+      fontWeight: '700',
+      color: '#1e293b',
+      margin: 0
+    },
+    historyTable: {
+      width: '100%',
+      borderCollapse: 'collapse'
+    },
+    th: {
+      textAlign: 'left',
+      padding: '12px 16px',
+      background: '#f8fafc',
+      fontWeight: '700',
+      fontSize: '12px',
+      color: '#64748b',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px'
+    },
+    td: {
+      padding: '16px',
+      borderBottom: '1px solid #e2e8f0',
+      fontSize: '14px'
+    },
+    badge: {
+      padding: '4px 12px',
+      borderRadius: '20px',
+      fontSize: '11px',
+      fontWeight: '700',
+      textTransform: 'uppercase'
+    },
+    submitBtn: {
+      background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+      color: '#fff',
+      border: 'none',
+      padding: '14px 32px',
+      borderRadius: '10px',
+      fontWeight: '700',
+      cursor: 'pointer',
+      fontSize: '14px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    },
+    statsRow: {
+      display: 'flex',
+      gap: '16px',
+      marginBottom: '24px'
+    },
+    statBox: {
+      flex: 1,
+      background: '#fff',
+      borderRadius: '12px',
+      padding: '20px',
+      textAlign: 'center',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+    },
+    statValue: {
+      fontSize: '28px',
+      fontWeight: '800',
+      marginBottom: '4px'
+    },
+    statLabel: {
+      fontSize: '12px',
+      fontWeight: '600',
+      color: '#64748b',
+      textTransform: 'uppercase'
+    }
+  };
+
+  return (
+    <div style={portalStyles.container}>
+      {/* Header */}
+      <div style={portalStyles.header}>
+        <h1 style={portalStyles.title}>🏢 Partner Evidence Portal</h1>
+        <p style={portalStyles.subtitle}>
+          Submit audit evidence for your Azure Specialization certifications
+        </p>
+      </div>
+
+      {/* Stats Row */}
+      <div style={portalStyles.statsRow}>
+        <div style={portalStyles.statBox}>
+          <div style={{ ...portalStyles.statValue, color: '#3b82f6' }}>
+            {submissionHistory.length}
+          </div>
+          <div style={portalStyles.statLabel}>Total Submissions</div>
+        </div>
+        <div style={portalStyles.statBox}>
+          <div style={{ ...portalStyles.statValue, color: '#f59e0b' }}>
+            {submissionHistory.filter(s => s.status === 'pending_review').length}
+          </div>
+          <div style={portalStyles.statLabel}>Pending Review</div>
+        </div>
+        <div style={portalStyles.statBox}>
+          <div style={{ ...portalStyles.statValue, color: '#22c55e' }}>
+            {submissionHistory.filter(s => s.status === 'approved').length}
+          </div>
+          <div style={portalStyles.statLabel}>Approved</div>
+        </div>
+        <div style={portalStyles.statBox}>
+          <div style={{ ...portalStyles.statValue, color: '#ef4444' }}>
+            {submissionHistory.filter(s => s.status === 'rejected').length}
+          </div>
+          <div style={portalStyles.statLabel}>Rejected</div>
+        </div>
+      </div>
+
+      {/* Step 1: Select Specialization */}
+      <div style={portalStyles.uploadSection}>
+        <div style={portalStyles.sectionHeader}>
+          <h3 style={portalStyles.sectionTitle}>
+            Step 1: Select Azure Specialization
+          </h3>
+          {selectedSpecialization && (
+            <span style={{
+              background: '#dbeafe',
+              color: '#1d4ed8',
+              padding: '6px 14px',
+              borderRadius: '20px',
+              fontSize: '13px',
+              fontWeight: '600'
+            }}>
+              ✓ {selectedSpecialization.name}
+            </span>
+          )}
+        </div>
+        <div style={{ padding: '20px' }}>
+          <div style={portalStyles.grid}>
+            {specializations.map(spec => (
+              <div
+                key={spec.id}
+                style={{
+                  ...portalStyles.specCard,
+                  ...(selectedSpecialization?.id === spec.id ? portalStyles.specCardSelected : {})
+                }}
+                onClick={() => setSelectedSpecialization(spec)}
+              >
+                <div style={portalStyles.specIcon}>{spec.icon}</div>
+                <div style={portalStyles.specName}>{spec.name}</div>
+                <div style={portalStyles.specDocs}>
+                  <strong>Required Documents:</strong>
+                  <ul style={{ margin: '8px 0 0 0', paddingLeft: '16px' }}>
+                    {spec.requiredDocs.map((doc, idx) => (
+                      <li key={idx} style={{ marginBottom: '4px' }}>{doc}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Step 2: Upload Evidence */}
+      {selectedSpecialization && (
+        <div style={portalStyles.uploadSection}>
+          <div style={portalStyles.sectionHeader}>
+            <h3 style={portalStyles.sectionTitle}>
+              Step 2: Upload Evidence Files
+            </h3>
+            {uploadedFiles.length > 0 && (
+              <span style={{
+                background: '#dcfce7',
+                color: '#166534',
+                padding: '6px 14px',
+                borderRadius: '20px',
+                fontSize: '13px',
+                fontWeight: '600'
+              }}>
+                {uploadedFiles.length} file(s) ready
+              </span>
+            )}
+          </div>
+          <FileUpload
+            auditId={`partner-${selectedSpecialization.id}`}
+            auditName={selectedSpecialization.name}
+            onUploadComplete={handleUploadComplete}
+          />
+        </div>
+      )}
+
+      {/* Step 3: Submit */}
+      {selectedSpecialization && uploadedFiles.length > 0 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          padding: '20px',
+          background: '#fff',
+          borderRadius: '12px',
+          marginBottom: '24px'
+        }}>
+          <button style={portalStyles.submitBtn} onClick={handleSubmitEvidence}>
+            <span>📤</span> Submit Evidence for Review
+          </button>
+        </div>
+      )}
+
+      {/* Submission History */}
+      <div style={portalStyles.uploadSection}>
+        <div style={portalStyles.sectionHeader}>
+          <h3 style={portalStyles.sectionTitle}>📜 Submission History</h3>
+        </div>
+        <table style={portalStyles.historyTable}>
+          <thead>
+            <tr>
+              <th style={portalStyles.th}>Submission ID</th>
+              <th style={portalStyles.th}>Date</th>
+              <th style={portalStyles.th}>Specialization</th>
+              <th style={portalStyles.th}>Files</th>
+              <th style={portalStyles.th}>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {submissionHistory.map(sub => (
+              <tr key={sub.id}>
+                <td style={portalStyles.td}>
+                  <strong>{sub.id}</strong>
+                </td>
+                <td style={portalStyles.td}>{sub.date}</td>
+                <td style={portalStyles.td}>{sub.specialization}</td>
+                <td style={portalStyles.td}>{sub.files} files</td>
+                <td style={portalStyles.td}>
+                  <span style={{
+                    ...portalStyles.badge,
+                    ...getStatusStyle(sub.status)
+                  }}>
+                    {sub.status === 'pending_review' ? 'Pending Review' :
+                     sub.status === 'approved' ? 'Approved' : 'Rejected'}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
 // Auditor Workbench Component
 const AuditorWorkbench = ({ state, dispatch }) => (
   <>
@@ -1739,10 +2212,14 @@ export default function AuditXApp() {
       
       <Header state={state} dispatch={dispatch} />
       
-      {state.currentPersona === 'auditor' ? (
+      {state.currentPersona === 'auditor' && (
         <AuditorWorkbench state={state} dispatch={dispatch} />
-      ) : (
+      )}
+      {state.currentPersona === 'engineer' && (
         <PlatformEngineerConsole state={state} dispatch={dispatch} />
+      )}
+      {state.currentPersona === 'partner' && (
+        <PartnerPortal state={state} dispatch={dispatch} />
       )}
       
       {/* Footer */}
