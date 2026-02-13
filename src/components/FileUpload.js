@@ -498,11 +498,11 @@ const FileUpload = ({ auditId, auditName, onUploadComplete }) => {
             >
               {isUploading ? (
                 <>
-                  <span>⏳</span> Uploading to Azure...
+                  <span>⏳</span> Submitting...
                 </>
               ) : (
                 <>
-                  <span>☁️</span> Upload to Azure Blob Storage
+                  <span>📤</span> Submit
                 </>
               )}
             </button>
