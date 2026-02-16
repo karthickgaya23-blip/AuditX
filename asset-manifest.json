@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/AuditX/static/css/main.a008c0dd.css",
-    "main.js": "/AuditX/static/js/main.c6b5c85f.js",
+    "main.js": "/AuditX/static/js/main.fb93fe1d.js",
     "index.html": "/AuditX/index.html",
     "main.a008c0dd.css.map": "/AuditX/static/css/main.a008c0dd.css.map",
-    "main.c6b5c85f.js.map": "/AuditX/static/js/main.c6b5c85f.js.map"
+    "main.fb93fe1d.js.map": "/AuditX/static/js/main.fb93fe1d.js.map"
   },
   "entrypoints": [
     "static/css/main.a008c0dd.css",
-    "static/js/main.c6b5c85f.js"
+    "static/js/main.fb93fe1d.js"
   ]
 }
