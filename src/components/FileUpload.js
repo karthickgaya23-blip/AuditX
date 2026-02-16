@@ -380,20 +380,28 @@ const FileUpload = ({ auditId, auditName, onUploadComplete }) => {
         </p>
       </div>
 
-      {/* Configuration Warning */}
+      {/* Configuration Warning - Only show in development */}
       {!isConfigured && (
         <div style={{
-          padding: '12px 16px',
-          background: '#fef3c7',
-          border: '1px solid #f59e0b',
-          borderRadius: '8px',
+          padding: '16px 20px',
+          background: 'linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%)',
+          border: '1px solid #3b82f6',
+          borderRadius: '12px',
           marginBottom: '16px',
           fontSize: '13px',
-          color: '#92400e'
+          color: '#1e40af'
         }}>
-          <strong>Configuration Required:</strong> Azure Storage credentials not found.
-          Please ensure .env.local file exists with REACT_APP_AZURE_STORAGE_ACCOUNT and
-          REACT_APP_AZURE_STORAGE_SAS_TOKEN, then restart the dev server.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+            <span style={{ fontSize: '20px' }}>☁️</span>
+            <strong style={{ fontSize: '15px' }}>Demo Mode</strong>
+          </div>
+          <p style={{ margin: '0 0 8px 0' }}>
+            File upload to Azure Blob Storage is available when running locally with configured credentials.
+          </p>
+          <p style={{ margin: 0, fontSize: '12px', color: '#3b82f6' }}>
+            For local setup: Create <code style={{ background: '#fff', padding: '2px 6px', borderRadius: '4px' }}>.env.local</code> with
+            REACT_APP_AZURE_STORAGE_ACCOUNT and REACT_APP_AZURE_STORAGE_SAS_TOKEN
+          </p>
         </div>
       )}
 
