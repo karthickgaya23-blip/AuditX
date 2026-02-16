@@ -202,8 +202,12 @@ const FileUpload = ({ auditId, auditName, onUploadComplete }) => {
   const [files, setFiles] = useState([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
   const [config] = useState(AZURE_STORAGE_CONFIG);
   const fileInputRef = useRef(null);
+
+  // Check if Azure config is properly set
+  const isConfigured = config.accountName && config.sasToken;
 
   const handleDragOver = useCallback((e) => {
     e.preventDefault();
@@ -250,10 +254,20 @@ const FileUpload = ({ auditId, auditName, onUploadComplete }) => {
   };
 
   const uploadToAzureBlob = async (fileObj) => {
+    // Validate configuration
+    if (!config.accountName) {
+      throw new Error('Azure Storage Account not configured. Check .env.local file.');
+    }
+    if (!config.sasToken) {
+      throw new Error('Azure SAS Token not configured. Check .env.local file.');
+    }
+
     try {
       // Build container URL using account name, container name, and SAS token
       // Format: https://<accountName>.blob.core.windows.net/<containerName>?<sasToken>
       const containerUrl = `https://${config.accountName}.blob.core.windows.net/${config.containerName}?${config.sasToken}`;
+
+      console.log('Uploading to:', `https://${config.accountName}.blob.core.windows.net/${config.containerName}/...`);
 
       // Create Container Client with SAS URL
       const containerClient = new ContainerClient(containerUrl);
@@ -277,9 +291,20 @@ const FileUpload = ({ auditId, auditName, onUploadComplete }) => {
 
       await blockBlobClient.uploadData(fileObj.file, uploadOptions);
 
+      console.log('Upload successful:', blobName);
       return blockBlobClient.url.split('?')[0]; // Return URL without SAS token
     } catch (error) {
       console.error('Upload error:', error);
+      // Provide more helpful error messages
+      if (error.message.includes('AuthorizationFailure') || error.message.includes('403')) {
+        throw new Error('Authorization failed. SAS token may be expired or have wrong permissions.');
+      }
+      if (error.message.includes('ContainerNotFound') || error.message.includes('404')) {
+        throw new Error(`Container "${config.containerName}" not found. Check container name.`);
+      }
+      if (error.message.includes('CORS') || error.name === 'TypeError') {
+        throw new Error('CORS error. Enable CORS on Azure Storage Account.');
+      }
       throw error;
     }
   };
@@ -289,6 +314,7 @@ const FileUpload = ({ auditId, auditName, onUploadComplete }) => {
     if (pendingFiles.length === 0) return;
 
     setIsUploading(true);
+    setUploadError(null);
 
     for (const fileObj of pendingFiles) {
       setFiles(prev => prev.map(f =>
@@ -303,6 +329,7 @@ const FileUpload = ({ auditId, auditName, onUploadComplete }) => {
             : f
         ));
       } catch (error) {
+        setUploadError(error.message);
         setFiles(prev => prev.map(f =>
           f.id === fileObj.id
             ? { ...f, status: 'error', errorMessage: error.message }
@@ -352,6 +379,38 @@ const FileUpload = ({ auditId, auditName, onUploadComplete }) => {
           {auditName ? `Uploading evidence for: ${auditName}` : 'Upload files to Azure Blob Storage for audit verification'}
         </p>
       </div>
+
+      {/* Configuration Warning */}
+      {!isConfigured && (
+        <div style={{
+          padding: '12px 16px',
+          background: '#fef3c7',
+          border: '1px solid #f59e0b',
+          borderRadius: '8px',
+          marginBottom: '16px',
+          fontSize: '13px',
+          color: '#92400e'
+        }}>
+          <strong>Configuration Required:</strong> Azure Storage credentials not found.
+          Please ensure .env.local file exists with REACT_APP_AZURE_STORAGE_ACCOUNT and
+          REACT_APP_AZURE_STORAGE_SAS_TOKEN, then restart the dev server.
+        </div>
+      )}
+
+      {/* Upload Error */}
+      {uploadError && (
+        <div style={{
+          padding: '12px 16px',
+          background: '#fee2e2',
+          border: '1px solid #ef4444',
+          borderRadius: '8px',
+          marginBottom: '16px',
+          fontSize: '13px',
+          color: '#991b1b'
+        }}>
+          <strong>Upload Error:</strong> {uploadError}
+        </div>
+      )}
 
       {/* Upload Zone */}
       <div
