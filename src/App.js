@@ -1,5 +1,6 @@
 import React, { useState, useReducer, useEffect } from 'react';
 import FileUpload from './components/FileUpload';
+import { transformAuditDocument, getSampleCosmosAudit, fetchAuditsFromCosmosDB } from './services/cosmosDbService';
 // ==================== REDUX-LIKE STATE MANAGEMENT ====================
 const initialState = {
   currentPersona: 'auditor',
@@ -7,8 +8,12 @@ const initialState = {
   promptHistory: [],
   agentResponses: [],
   filterStatus: 'all',
-  
-  // Audit Queue Data
+  useCosmosData: true, // Toggle to use Cosmos DB data
+  cosmosAudits: [], // Will be populated from Cosmos DB
+  cosmosLoading: true, // Loading state for Cosmos DB fetch
+  cosmosError: null, // Error state for Cosmos DB fetch
+
+  // Audit Queue Data (sample data)
   audits: [
     {
       id: 'AUD-001',
@@ -427,7 +432,11 @@ const ACTIONS = {
   UPDATE_AUDIT_STATUS: 'UPDATE_AUDIT_STATUS',
   CREATE_WORKFLOW: 'CREATE_WORKFLOW',
   DEPLOY_AGENTS: 'DEPLOY_AGENTS',
-  CLEAR_PROMPTS: 'CLEAR_PROMPTS'
+  CLEAR_PROMPTS: 'CLEAR_PROMPTS',
+  SET_COSMOS_AUDITS: 'SET_COSMOS_AUDITS',
+  TOGGLE_DATA_SOURCE: 'TOGGLE_DATA_SOURCE',
+  SET_COSMOS_LOADING: 'SET_COSMOS_LOADING',
+  SET_COSMOS_ERROR: 'SET_COSMOS_ERROR'
 };
 
 // Reducer
@@ -446,7 +455,10 @@ function reducer(state, action) {
     case ACTIONS.UPDATE_AUDIT_STATUS:
       return {
         ...state,
-        audits: state.audits.map(a => 
+        audits: state.audits.map(a =>
+          a.id === action.payload.id ? { ...a, status: action.payload.status } : a
+        ),
+        cosmosAudits: state.cosmosAudits.map(a =>
           a.id === action.payload.id ? { ...a, status: action.payload.status } : a
         )
       };
@@ -457,6 +469,14 @@ function reducer(state, action) {
       };
     case ACTIONS.CLEAR_PROMPTS:
       return { ...state, promptHistory: [], agentResponses: [] };
+    case ACTIONS.SET_COSMOS_AUDITS:
+      return { ...state, cosmosAudits: action.payload, cosmosLoading: false, cosmosError: null };
+    case ACTIONS.TOGGLE_DATA_SOURCE:
+      return { ...state, useCosmosData: !state.useCosmosData, selectedAudit: null };
+    case ACTIONS.SET_COSMOS_LOADING:
+      return { ...state, cosmosLoading: action.payload };
+    case ACTIONS.SET_COSMOS_ERROR:
+      return { ...state, cosmosError: action.payload, cosmosLoading: false };
     default:
       return state;
   }
@@ -898,29 +918,47 @@ const Header = ({ state, dispatch }) => (
 );
 
 // Stats Dashboard Component
-const StatsDashboard = ({ stats }) => (
-  <div style={styles.statsGrid}>
-    <div style={{ ...styles.statCard, background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' }}>
-      <div style={{ ...styles.statValue, color: '#1d4ed8' }}>{stats.auditsLast30Days}</div>
-      <div style={{ ...styles.statLabel, color: '#3b82f6' }}>Audits (30 Days)</div>
+const StatsDashboard = ({ stats, audits, cosmosAudits, useCosmosData }) => {
+  // Calculate dynamic stats based on data source
+  const dataSource = useCosmosData ? cosmosAudits : audits;
+  const dynamicStats = {
+    total: dataSource?.length || 0,
+    pendingReview: dataSource?.filter(a => a.status === 'pending_review').length || 0,
+    approved: dataSource?.filter(a => a.status === 'approved').length || 0,
+    rejected: dataSource?.filter(a => a.status === 'rejected').length || 0,
+    avgScore: dataSource?.length > 0
+      ? Math.round(dataSource.reduce((sum, a) => sum + (a.complianceScore || a.overallScore || 0), 0) / dataSource.length)
+      : 0
+  };
+
+  return (
+    <div style={styles.statsGrid}>
+      <div style={{ ...styles.statCard, background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' }}>
+        <div style={{ ...styles.statValue, color: '#1d4ed8' }}>{dynamicStats.total}</div>
+        <div style={{ ...styles.statLabel, color: '#3b82f6' }}>Total Audits</div>
+      </div>
+      <div style={{ ...styles.statCard, background: 'linear-gradient(135deg, #fefce8 0%, #fef3c7 100%)' }}>
+        <div style={{ ...styles.statValue, color: '#a16207' }}>{dynamicStats.pendingReview}</div>
+        <div style={{ ...styles.statLabel, color: '#ca8a04' }}>Pending Review</div>
+      </div>
+      <div style={{ ...styles.statCard, background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)' }}>
+        <div style={{ ...styles.statValue, color: '#166534' }}>{dynamicStats.approved}</div>
+        <div style={{ ...styles.statLabel, color: '#22c55e' }}>Approved</div>
+      </div>
+      <div style={{ ...styles.statCard, background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)' }}>
+        <div style={{ ...styles.statValue, color: '#991b1b' }}>{dynamicStats.rejected}</div>
+        <div style={{ ...styles.statLabel, color: '#ef4444' }}>Rejected</div>
+      </div>
+      <div style={{ ...styles.statCard, background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)' }}>
+        <div style={{ ...styles.statValue, color: '#6d28d9' }}>{dynamicStats.avgScore}%</div>
+        <div style={{ ...styles.statLabel, color: '#8b5cf6' }}>Avg Score</div>
+      </div>
     </div>
-    <div style={{ ...styles.statCard, background: 'linear-gradient(135deg, #fefce8 0%, #fef3c7 100%)' }}>
-      <div style={{ ...styles.statValue, color: '#a16207' }}>{stats.pendingReview}</div>
-      <div style={{ ...styles.statLabel, color: '#ca8a04' }}>Pending Review</div>
-    </div>
-    <div style={{ ...styles.statCard, background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)' }}>
-      <div style={{ ...styles.statValue, color: '#166534' }}>{stats.approved}</div>
-      <div style={{ ...styles.statLabel, color: '#22c55e' }}>Approved</div>
-    </div>
-    <div style={{ ...styles.statCard, background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)' }}>
-      <div style={{ ...styles.statValue, color: '#991b1b' }}>{stats.rejected}</div>
-      <div style={{ ...styles.statLabel, color: '#ef4444' }}>Rejected</div>
-    </div>
-  </div>
-);
+  );
+};
 
 // Audit Queue Component
-const AuditQueue = ({ audits, filterStatus, selectedAudit, dispatch }) => {
+const AuditQueue = ({ audits, filterStatus, selectedAudit, dispatch, useCosmosData, cosmosAudits, cosmosLoading, cosmosError }) => {
   const filters = [
     { key: 'all', label: 'All' },
     { key: 'pending_review', label: 'Pending Review' },
@@ -928,13 +966,71 @@ const AuditQueue = ({ audits, filterStatus, selectedAudit, dispatch }) => {
     { key: 'rejected', label: 'Rejected' },
     { key: 'in_progress', label: 'In Progress' }
   ];
-  
-  const filteredAudits = filterStatus === 'all' 
-    ? audits 
-    : audits.filter(a => a.status === filterStatus);
-  
+
+  // Use either Cosmos DB data or sample data based on toggle
+  const dataSource = useCosmosData ? cosmosAudits : audits;
+
+  const filteredAudits = filterStatus === 'all'
+    ? dataSource
+    : dataSource.filter(a => a.status === filterStatus);
+
   return (
     <div>
+      {/* Data Source Toggle */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        marginBottom: '16px',
+        padding: '12px',
+        background: useCosmosData ? '#eff6ff' : '#f8fafc',
+        borderRadius: '10px',
+        border: useCosmosData ? '2px solid #3b82f6' : '2px solid #e2e8f0',
+        flexWrap: 'wrap'
+      }}>
+        <span style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>Data Source:</span>
+        <button
+          onClick={() => dispatch({ type: ACTIONS.TOGGLE_DATA_SOURCE })}
+          style={{
+            padding: '6px 16px',
+            borderRadius: '6px',
+            border: 'none',
+            fontSize: '12px',
+            fontWeight: '700',
+            cursor: 'pointer',
+            background: useCosmosData ? '#3b82f6' : '#64748b',
+            color: '#fff'
+          }}
+        >
+          {useCosmosData ? '☁️ Cosmos DB' : '📁 Sample Data'}
+        </button>
+        <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+          {filteredAudits.length} audit(s)
+        </span>
+        {cosmosLoading && useCosmosData && (
+          <span style={{
+            fontSize: '11px',
+            color: '#3b82f6',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}>
+            ⏳ Loading...
+          </span>
+        )}
+        {cosmosError && useCosmosData && (
+          <span style={{
+            fontSize: '11px',
+            color: '#dc2626',
+            background: '#fee2e2',
+            padding: '4px 8px',
+            borderRadius: '4px'
+          }}>
+            ⚠️ Using sample data (Cosmos DB: CORS/Auth)
+          </span>
+        )}
+      </div>
+
       <div style={styles.filterTabs}>
         {filters.map(f => (
           <button
@@ -949,13 +1045,23 @@ const AuditQueue = ({ audits, filterStatus, selectedAudit, dispatch }) => {
           </button>
         ))}
       </div>
-      
+
       <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
-        {filteredAudits.map(audit => {
-          const status = statusConfig[audit.status];
-          const scoreColor = getScoreColor(audit.complianceScore);
+        {filteredAudits.length === 0 ? (
+          <div style={{
+            padding: '40px 20px',
+            textAlign: 'center',
+            color: '#94a3b8'
+          }}>
+            <div style={{ fontSize: '32px', marginBottom: '12px' }}>📋</div>
+            <div>No audits found</div>
+          </div>
+        ) : filteredAudits.map(audit => {
+          const status = statusConfig[audit.status] || statusConfig.pending_review;
+          const scoreColor = getScoreColor(audit.complianceScore || audit.overallScore);
           const isSelected = selectedAudit?.id === audit.id;
-          
+          const score = audit.complianceScore || audit.overallScore || 0;
+
           return (
             <div
               key={audit.id}
@@ -967,47 +1073,91 @@ const AuditQueue = ({ audits, filterStatus, selectedAudit, dispatch }) => {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1 }}>
+                  {/* Audit Name */}
                   <div style={styles.auditName}>{audit.name}</div>
+
+                  {/* Client/Partner Name - Prominent Display */}
+                  <div style={{
+                    fontSize: '13px',
+                    color: '#1e3a5f',
+                    fontWeight: '600',
+                    marginBottom: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    🏢 {audit.partner || audit.clientName || 'Unknown Client'}
+                  </div>
+
+                  {/* Status Badges */}
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ 
-                      ...styles.badge, 
-                      background: status.bg, 
-                      color: status.color 
+                    <span style={{
+                      ...styles.badge,
+                      background: status.bg,
+                      color: status.color
                     }}>
                       {status.label}
                     </span>
-                    <span style={{ 
-                      ...styles.badge, 
-                      background: '#f1f5f9', 
-                      color: '#475569' 
-                    }}>
-                      {audit.type}
+                    {audit.type && (
+                      <span style={{
+                        ...styles.badge,
+                        background: '#f1f5f9',
+                        color: '#475569'
+                      }}>
+                        {audit.type}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Key Dates - SLA/Expiry Prominent */}
+                  <div style={{
+                    ...styles.auditMeta,
+                    background: '#fef3c7',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    marginBottom: '8px'
+                  }}>
+                    <span style={{ fontWeight: '600', color: '#92400e' }}>
+                      ⏰ SLA: {audit.slaDate || 'N/A'}
                     </span>
+                    <span>📅 Due: {audit.dueDate || 'N/A'}</span>
                   </div>
+
+                  {/* Evidence & Workload Count */}
                   <div style={styles.auditMeta}>
-                    <span>📅 Due: {audit.dueDate}</span>
-                    <span>⏰ SLA: {audit.slaDate}</span>
-                    <span>📋 {audit.evidenceItems} evidence</span>
-                    <span>💼 {audit.workloads} workloads</span>
+                    <span>📋 {audit.evidenceItems || 0} evidence</span>
+                    <span>💼 {audit.workloads || 0} controls</span>
                   </div>
-                  <div>
-                    {audit.certifications.map(cert => (
-                      <span key={cert} style={styles.certBadge}>{cert}</span>
-                    ))}
-                  </div>
+
+                  {/* Certifications */}
+                  {audit.certifications && audit.certifications.length > 0 && (
+                    <div>
+                      {audit.certifications.map(cert => (
+                        <span key={cert} style={styles.certBadge}>{cert}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
+
+                {/* Overall Score Circle */}
                 <div style={{
                   ...styles.scoreCircle,
                   background: scoreColor.bg,
-                  color: scoreColor.color
+                  color: scoreColor.color,
+                  flexDirection: 'column',
+                  width: '70px',
+                  height: '70px'
                 }}>
-                  {audit.complianceScore}%
+                  <div style={{ fontSize: '20px', fontWeight: '800' }}>{score}%</div>
+                  <div style={{ fontSize: '9px', fontWeight: '600', opacity: 0.8 }}>SCORE</div>
                 </div>
               </div>
+
+              {/* Assigned To */}
               {audit.assignedTo && (
-                <div style={{ 
-                  marginTop: '10px', 
-                  fontSize: '12px', 
+                <div style={{
+                  marginTop: '10px',
+                  fontSize: '12px',
                   color: '#64748b',
                   display: 'flex',
                   alignItems: 'center',
@@ -1054,9 +1204,9 @@ const SamplePromptsPanel = ({ samplePrompts, onPromptSelect }) => (
   </div>
 );
 
-// Evidence Viewer Component with Tabs
+// Evidence Viewer Component with Tabs - Enhanced for Cosmos DB data
 const EvidenceViewer = ({ audit, onUploadComplete }) => {
-  const [activeTab, setActiveTab] = useState('evidence');
+  const [activeTab, setActiveTab] = useState('scores');
 
   const tabStyles = {
     tabContainer: {
@@ -1064,14 +1214,15 @@ const EvidenceViewer = ({ audit, onUploadComplete }) => {
       gap: '4px',
       marginBottom: '20px',
       borderBottom: '2px solid #e2e8f0',
-      paddingBottom: '0'
+      paddingBottom: '0',
+      flexWrap: 'wrap'
     },
     tab: {
-      padding: '12px 20px',
+      padding: '12px 16px',
       border: 'none',
       background: 'transparent',
       cursor: 'pointer',
-      fontSize: '14px',
+      fontSize: '13px',
       fontWeight: '600',
       color: '#64748b',
       borderBottom: '2px solid transparent',
@@ -1081,6 +1232,16 @@ const EvidenceViewer = ({ audit, onUploadComplete }) => {
     tabActive: {
       color: '#3b82f6',
       borderBottomColor: '#3b82f6'
+    }
+  };
+
+  // Get status color for control scores
+  const getControlStatusColor = (status) => {
+    switch (status) {
+      case 0: return { bg: '#dcfce7', color: '#166534', label: 'Pass' };
+      case 1: return { bg: '#fef3c7', color: '#92400e', label: 'Partial' };
+      case 2: return { bg: '#fee2e2', color: '#991b1b', label: 'Fail' };
+      default: return { bg: '#f1f5f9', color: '#64748b', label: 'Unknown' };
     }
   };
 
@@ -1102,6 +1263,9 @@ const EvidenceViewer = ({ audit, onUploadComplete }) => {
     );
   }
 
+  // Check if this is Cosmos DB data (has moduleAScore)
+  const isCosmosData = audit.moduleAScore || audit.moduleBScore;
+
   return (
     <div>
       {/* Tabs */}
@@ -1109,11 +1273,29 @@ const EvidenceViewer = ({ audit, onUploadComplete }) => {
         <button
           style={{
             ...tabStyles.tab,
-            ...(activeTab === 'evidence' ? tabStyles.tabActive : {})
+            ...(activeTab === 'scores' ? tabStyles.tabActive : {})
           }}
-          onClick={() => setActiveTab('evidence')}
+          onClick={() => setActiveTab('scores')}
         >
-          📋 Evidence
+          📊 Module Scores
+        </button>
+        <button
+          style={{
+            ...tabStyles.tab,
+            ...(activeTab === 'findings' ? tabStyles.tabActive : {})
+          }}
+          onClick={() => setActiveTab('findings')}
+        >
+          🔍 Findings
+        </button>
+        <button
+          style={{
+            ...tabStyles.tab,
+            ...(activeTab === 'recommendations' ? tabStyles.tabActive : {})
+          }}
+          onClick={() => setActiveTab('recommendations')}
+        >
+          💡 Recommendations
         </button>
         <button
           style={{
@@ -1122,96 +1304,401 @@ const EvidenceViewer = ({ audit, onUploadComplete }) => {
           }}
           onClick={() => setActiveTab('upload')}
         >
-          ☁️ Upload Files
-        </button>
-        <button
-          style={{
-            ...tabStyles.tab,
-            ...(activeTab === 'certifications' ? tabStyles.tabActive : {})
-          }}
-          onClick={() => setActiveTab('certifications')}
-        >
-          🎓 Certifications
+          ☁️ Upload
         </button>
       </div>
 
-      {/* Tab Content */}
-      {activeTab === 'evidence' && (
-        <div style={styles.evidencePanel}>
-          <div style={{ marginBottom: '20px' }}>
-            <h4 style={{ margin: '0 0 12px 0', color: '#1e293b' }}>Workload Evidence</h4>
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.th}>Workload Name</th>
-                  <th style={styles.th}>Start Date</th>
-                  <th style={styles.th}>Status</th>
-                  <th style={styles.th}>Uptime</th>
-                </tr>
-              </thead>
-              <tbody>
-                {audit.workloadDetails.map((w, idx) => (
-                  <tr key={idx}>
-                    <td style={styles.td}>{w.name}</td>
-                    <td style={styles.td}>{w.startDate}</td>
-                    <td style={styles.td}>
-                      <span style={{
-                        ...styles.badge,
-                        background: '#dcfce7',
-                        color: '#166534'
-                      }}>{w.status}</span>
-                    </td>
-                    <td style={styles.td}>{w.uptime}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Module Scores Tab */}
+      {activeTab === 'scores' && (
+        <div style={{ ...styles.evidencePanel, maxHeight: '500px' }}>
+          {/* Overall Score Summary */}
+          <div style={{
+            background: 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)',
+            borderRadius: '12px',
+            padding: '20px',
+            marginBottom: '20px',
+            color: '#fff'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '14px', opacity: 0.8, marginBottom: '4px' }}>Overall Audit Score</div>
+                <div style={{ fontSize: '36px', fontWeight: '800' }}>
+                  {audit.overallScore || audit.complianceScore || 0}%
+                </div>
+                <div style={{ fontSize: '12px', opacity: 0.7, marginTop: '4px' }}>
+                  {audit.executiveSummary?.includes('FAIL') ? '❌ FAIL' : audit.executiveSummary?.includes('PASS') ? '✅ PASS' : '⏳ Pending'}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '12px', opacity: 0.7 }}>Checklist Version</div>
+                <div style={{ fontSize: '16px', fontWeight: '600' }}>{audit.checklistVersion || 'N/A'}</div>
+              </div>
+            </div>
           </div>
+
+          {/* Module A Score */}
+          {audit.moduleAScore && (
+            <div style={{
+              background: '#fff',
+              border: '2px solid #e2e8f0',
+              borderRadius: '12px',
+              padding: '16px',
+              marginBottom: '16px'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '16px'
+              }}>
+                <div>
+                  <div style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>
+                    Module A: {audit.moduleAScore.moduleName}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>
+                    {audit.moduleAScore.passedControls} Passed | {audit.moduleAScore.partialControls} Partial | {audit.moduleAScore.failedControls} Failed
+                  </div>
+                </div>
+                <div style={{
+                  background: getScoreColor(audit.moduleAScore.score).bg,
+                  color: getScoreColor(audit.moduleAScore.score).color,
+                  padding: '12px 20px',
+                  borderRadius: '10px',
+                  fontWeight: '800',
+                  fontSize: '20px'
+                }}>
+                  {Math.round(audit.moduleAScore.score)}%
+                </div>
+              </div>
+
+              {/* Control Scores Table */}
+              <table style={{ ...styles.table, fontSize: '12px' }}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Control ID</th>
+                    <th style={styles.th}>Control Name</th>
+                    <th style={styles.th}>Score</th>
+                    <th style={styles.th}>Weight</th>
+                    <th style={styles.th}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {audit.moduleAScore.controlScores?.map((control, idx) => {
+                    const statusStyle = getControlStatusColor(control.status);
+                    return (
+                      <tr key={idx}>
+                        <td style={styles.td}><strong>{control.controlId}</strong></td>
+                        <td style={styles.td}>{control.controlName}</td>
+                        <td style={styles.td}>{control.score}%</td>
+                        <td style={styles.td}>{control.weight}</td>
+                        <td style={styles.td}>
+                          <span style={{
+                            ...styles.badge,
+                            background: statusStyle.bg,
+                            color: statusStyle.color
+                          }}>{statusStyle.label}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Module B Score */}
+          {audit.moduleBScore && (
+            <div style={{
+              background: '#fff',
+              border: '2px solid #e2e8f0',
+              borderRadius: '12px',
+              padding: '16px'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '16px'
+              }}>
+                <div>
+                  <div style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>
+                    Module B: {audit.moduleBScore.moduleName}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>
+                    {audit.moduleBScore.passedControls} Passed | {audit.moduleBScore.partialControls} Partial | {audit.moduleBScore.failedControls} Failed
+                  </div>
+                </div>
+                <div style={{
+                  background: getScoreColor(audit.moduleBScore.score).bg,
+                  color: getScoreColor(audit.moduleBScore.score).color,
+                  padding: '12px 20px',
+                  borderRadius: '10px',
+                  fontWeight: '800',
+                  fontSize: '20px'
+                }}>
+                  {Math.round(audit.moduleBScore.score)}%
+                </div>
+              </div>
+
+              {/* Control Scores Table */}
+              <table style={{ ...styles.table, fontSize: '12px' }}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Control ID</th>
+                    <th style={styles.th}>Control Name</th>
+                    <th style={styles.th}>Score</th>
+                    <th style={styles.th}>Weight</th>
+                    <th style={styles.th}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {audit.moduleBScore.controlScores?.map((control, idx) => {
+                    const statusStyle = getControlStatusColor(control.status);
+                    return (
+                      <tr key={idx}>
+                        <td style={styles.td}><strong>{control.controlId}</strong></td>
+                        <td style={styles.td}>{control.controlName}</td>
+                        <td style={styles.td}>{control.score}%</td>
+                        <td style={styles.td}>{control.weight}</td>
+                        <td style={styles.td}>
+                          <span style={{
+                            ...styles.badge,
+                            background: statusStyle.bg,
+                            color: statusStyle.color
+                          }}>{statusStyle.label}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Legacy workload display for non-Cosmos data */}
+          {!isCosmosData && audit.workloadDetails && (
+            <div>
+              <h4 style={{ margin: '0 0 12px 0', color: '#1e293b' }}>Workload Evidence</h4>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Workload Name</th>
+                    <th style={styles.th}>Start Date</th>
+                    <th style={styles.th}>Status</th>
+                    <th style={styles.th}>Uptime</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {audit.workloadDetails.map((w, idx) => (
+                    <tr key={idx}>
+                      <td style={styles.td}>{w.name}</td>
+                      <td style={styles.td}>{w.startDate}</td>
+                      <td style={styles.td}>
+                        <span style={{
+                          ...styles.badge,
+                          background: '#dcfce7',
+                          color: '#166534'
+                        }}>{w.status}</span>
+                      </td>
+                      <td style={styles.td}>{w.uptime}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
+      {/* Findings Tab */}
+      {activeTab === 'findings' && (
+        <div style={{ ...styles.evidencePanel, maxHeight: '500px' }}>
+          {/* Key Strengths */}
+          {audit.keyStrengths && audit.keyStrengths.length > 0 && (
+            <div style={{
+              background: '#f0fdf4',
+              border: '1px solid #86efac',
+              borderRadius: '12px',
+              padding: '16px',
+              marginBottom: '16px'
+            }}>
+              <div style={{ fontWeight: '700', color: '#166534', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                ✅ Key Strengths
+              </div>
+              {audit.keyStrengths.map((strength, idx) => (
+                <div key={idx} style={{
+                  padding: '8px 12px',
+                  background: '#fff',
+                  borderRadius: '6px',
+                  marginBottom: '6px',
+                  fontSize: '13px',
+                  color: '#166534'
+                }}>
+                  {strength}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Key Gaps */}
+          {audit.keyGaps && audit.keyGaps.length > 0 && (
+            <div style={{
+              background: '#fef2f2',
+              border: '1px solid #fca5a5',
+              borderRadius: '12px',
+              padding: '16px',
+              marginBottom: '16px'
+            }}>
+              <div style={{ fontWeight: '700', color: '#991b1b', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                ❌ Key Gaps ({audit.keyGaps.length})
+              </div>
+              {audit.keyGaps.slice(0, 5).map((gap, idx) => (
+                <div key={idx} style={{
+                  padding: '8px 12px',
+                  background: '#fff',
+                  borderRadius: '6px',
+                  marginBottom: '6px',
+                  fontSize: '13px',
+                  color: '#991b1b'
+                }}>
+                  • {gap}
+                </div>
+              ))}
+              {audit.keyGaps.length > 5 && (
+                <div style={{ fontSize: '12px', color: '#991b1b', marginTop: '8px' }}>
+                  +{audit.keyGaps.length - 5} more gaps...
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Detailed Findings */}
+          {audit.findings && audit.findings.length > 0 && (
+            <div>
+              <h4 style={{ margin: '0 0 12px 0', color: '#1e293b' }}>Detailed Control Findings</h4>
+              {audit.findings.map((finding, idx) => {
+                const statusStyle = getControlStatusColor(finding.status);
+                return (
+                  <div key={idx} style={{
+                    background: '#fff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '10px',
+                    padding: '16px',
+                    marginBottom: '12px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <div>
+                        <span style={{ fontWeight: '700', color: '#1e3a5f', marginRight: '8px' }}>{finding.controlId}</span>
+                        <span style={{ color: '#475569' }}>{finding.controlName}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontWeight: '700', color: '#1e293b' }}>{finding.score}%</span>
+                        <span style={{
+                          ...styles.badge,
+                          background: statusStyle.bg,
+                          color: statusStyle.color
+                        }}>{statusStyle.label}</span>
+                      </div>
+                    </div>
+
+                    {/* Evidence Found */}
+                    {finding.evidenceFound && finding.evidenceFound.length > 0 && (
+                      <div style={{ marginBottom: '8px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: '700', color: '#16a34a', marginBottom: '4px' }}>
+                          ✓ Evidence Found:
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#475569', paddingLeft: '12px' }}>
+                          {finding.evidenceFound.join(' | ')}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Evidence Missing */}
+                    {finding.evidenceMissing && finding.evidenceMissing.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '11px', fontWeight: '700', color: '#dc2626', marginBottom: '4px' }}>
+                          ✗ Evidence Missing:
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#475569', paddingLeft: '12px' }}>
+                          {finding.evidenceMissing.join(' | ')}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Recommendations Tab */}
+      {activeTab === 'recommendations' && (
+        <div style={{ ...styles.evidencePanel, maxHeight: '500px' }}>
+          <div style={{
+            background: '#eff6ff',
+            border: '1px solid #93c5fd',
+            borderRadius: '12px',
+            padding: '16px',
+            marginBottom: '16px'
+          }}>
+            <div style={{ fontWeight: '700', color: '#1d4ed8', marginBottom: '4px' }}>
+              💡 Recommendations Summary
+            </div>
+            <div style={{ fontSize: '13px', color: '#3b82f6' }}>
+              {audit.recommendations?.length || 0} recommendations to improve audit compliance
+            </div>
+          </div>
+
+          {audit.recommendations && audit.recommendations.length > 0 ? (
+            <div>
+              {audit.recommendations.map((rec, idx) => (
+                <div key={idx} style={{
+                  background: '#fff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '10px',
+                  padding: '16px',
+                  marginBottom: '12px',
+                  display: 'flex',
+                  gap: '12px',
+                  alignItems: 'flex-start'
+                }}>
+                  <div style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    background: '#dbeafe',
+                    color: '#1d4ed8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: '700',
+                    fontSize: '12px',
+                    flexShrink: 0
+                  }}>
+                    {idx + 1}
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.5' }}>
+                    {rec}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+              No recommendations available
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Upload Tab */}
       {activeTab === 'upload' && (
         <FileUpload
           auditId={audit.id}
           auditName={audit.name}
           onUploadComplete={onUploadComplete}
         />
-      )}
-
-      {activeTab === 'certifications' && (
-        <div style={styles.evidencePanel}>
-          <div style={{ marginBottom: '20px' }}>
-            <h4 style={{ margin: '0 0 12px 0', color: '#1e293b' }}>Employee Certifications</h4>
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.th}>Employee Name</th>
-                  <th style={styles.th}>Certification</th>
-                  <th style={styles.th}>Cert Date</th>
-                  <th style={styles.th}>Expiry Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {audit.employees.map((emp, idx) => (
-                  <tr key={idx}>
-                    <td style={styles.td}>{emp.name}</td>
-                    <td style={styles.td}>
-                      <span style={styles.certBadge}>{emp.cert}</span>
-                    </td>
-                    <td style={styles.td}>{emp.certDate}</td>
-                    <td style={styles.td}>
-                      <span style={{
-                        color: new Date(emp.expiryDate) < new Date() ? '#dc2626' : '#166534'
-                      }}>
-                        {emp.expiryDate}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
       )}
     </div>
   );
@@ -2096,7 +2583,12 @@ const AuditorWorkbench = ({ state, dispatch }) => (
           </p>
         </div>
       </div>
-      <StatsDashboard stats={state.stats} />
+      <StatsDashboard
+        stats={state.stats}
+        audits={state.audits}
+        cosmosAudits={state.cosmosAudits}
+        useCosmosData={state.useCosmosData}
+      />
     </div>
 
     <div style={styles.mainContainer}>
@@ -2111,6 +2603,10 @@ const AuditorWorkbench = ({ state, dispatch }) => (
         <div style={styles.cardBody}>
           <AuditQueue
             audits={state.audits}
+            cosmosAudits={state.cosmosAudits}
+            useCosmosData={state.useCosmosData}
+            cosmosLoading={state.cosmosLoading}
+            cosmosError={state.cosmosError}
             filterStatus={state.filterStatus}
             selectedAudit={state.selectedAudit}
             dispatch={dispatch}
@@ -2184,7 +2680,89 @@ const AuditorWorkbench = ({ state, dispatch }) => (
 // ==================== MAIN APP ====================
 export default function AuditXApp() {
   const [state, dispatch] = useReducer(reducer, initialState);
-  
+
+  // Load Cosmos DB data on startup
+  useEffect(() => {
+    const loadCosmosData = async () => {
+      dispatch({ type: ACTIONS.SET_COSMOS_LOADING, payload: true });
+
+      try {
+        console.log('Attempting to fetch data from Cosmos DB...');
+        console.log('Database: AuditResults, Container: Audits');
+
+        // Try to fetch from Cosmos DB
+        const documents = await fetchAuditsFromCosmosDB();
+
+        if (documents && documents.length > 0) {
+          console.log(`Fetched ${documents.length} documents from Cosmos DB`);
+
+          // Transform all documents
+          const cosmosAudits = documents.map(doc => transformAuditDocument(doc));
+
+          dispatch({ type: ACTIONS.SET_COSMOS_AUDITS, payload: cosmosAudits });
+        } else {
+          console.log('No documents found, using sample data');
+          loadSampleData();
+        }
+      } catch (error) {
+        console.error('Failed to fetch from Cosmos DB:', error);
+        dispatch({ type: ACTIONS.SET_COSMOS_ERROR, payload: error.message });
+        loadSampleData();
+      }
+    };
+
+    const loadSampleData = () => {
+      // Transform sample Cosmos DB data
+      const sampleCosmosData = getSampleCosmosAudit();
+      const transformedAudit = transformAuditDocument(sampleCosmosData);
+
+      // Add additional sample audits from Cosmos DB format
+      const cosmosAudits = [
+        transformedAudit,
+        // Add more sample audits with variations
+        {
+          ...transformAuditDocument({
+            ...sampleCosmosData,
+            id: 'cosmos-002',
+            auditId: 'cosmos-002',
+            overallScore: 72,
+            passStatus: 1,
+            primaryDocumentName: 'Contoso_Analytics_Azure_Assessment_v2.docx',
+            moduleBScore: {
+              ...sampleCosmosData.moduleBScore,
+              moduleName: 'Analytics on Azure Specialization',
+              score: 65
+            }
+          }),
+          dueDate: '2026-02-20',
+          slaDate: '2026-03-01'
+        },
+        {
+          ...transformAuditDocument({
+            ...sampleCosmosData,
+            id: 'cosmos-003',
+            auditId: 'cosmos-003',
+            overallScore: 88,
+            passStatus: 0,
+            primaryDocumentName: 'TechCorp_Kubernetes_Azure_Audit_v1.docx',
+            moduleBScore: {
+              ...sampleCosmosData.moduleBScore,
+              moduleName: 'Kubernetes on Microsoft Azure',
+              score: 85
+            }
+          }),
+          status: 'approved',
+          dueDate: '2026-02-25',
+          slaDate: '2026-03-05'
+        }
+      ];
+
+      dispatch({ type: ACTIONS.SET_COSMOS_AUDITS, payload: cosmosAudits });
+    };
+
+    loadCosmosData();
+  }, []);
+
   return (
     <div style={styles.app}>
       <style>{`

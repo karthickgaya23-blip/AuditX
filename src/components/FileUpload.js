@@ -1,12 +1,12 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { BlobServiceClient } from '@azure/storage-blob';
+import { ContainerClient } from '@azure/storage-blob';
 
-// Azure Blob Storage Configuration
+// Azure Blob Storage Configuration - Uses environment variables for security
+// Set these in .env.local file (not committed to git)
 const AZURE_STORAGE_CONFIG = {
-  // Replace these with your actual Azure Storage values or use environment variables
-  accountName: process.env.REACT_APP_AZURE_STORAGE_ACCOUNT || 'your-storage-account',
-  sasToken: process.env.REACT_APP_AZURE_STORAGE_SAS_TOKEN || 'your-sas-token',
-  containerName: process.env.REACT_APP_AZURE_CONTAINER_NAME || 'audit-evidence'
+  accountName: process.env.REACT_APP_AZURE_STORAGE_ACCOUNT || '',
+  containerName: process.env.REACT_APP_AZURE_CONTAINER_NAME || 'auditfiles',
+  sasToken: process.env.REACT_APP_AZURE_STORAGE_SAS_TOKEN || ''
 };
 
 // Styles for the FileUpload component
@@ -168,57 +168,6 @@ const styles = {
     alignItems: 'center',
     gap: '8px'
   },
-  configSection: {
-    marginTop: '24px',
-    padding: '20px',
-    background: '#f8fafc',
-    borderRadius: '12px',
-    border: '1px solid #e2e8f0'
-  },
-  configTitle: {
-    fontSize: '14px',
-    fontWeight: '700',
-    color: '#475569',
-    marginBottom: '16px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px'
-  },
-  configGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '16px'
-  },
-  configItem: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px'
-  },
-  configLabel: {
-    fontSize: '11px',
-    fontWeight: '600',
-    color: '#94a3b8',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px'
-  },
-  configValue: {
-    fontSize: '13px',
-    fontWeight: '600',
-    color: '#1e293b',
-    padding: '8px 12px',
-    background: '#fff',
-    borderRadius: '6px',
-    border: '1px solid #e2e8f0'
-  },
-  input: {
-    padding: '10px 12px',
-    border: '2px solid #e2e8f0',
-    borderRadius: '8px',
-    fontSize: '13px',
-    outline: 'none',
-    transition: 'border-color 0.2s ease',
-    width: '100%'
-  }
 };
 
 // File type icons
@@ -253,8 +202,7 @@ const FileUpload = ({ auditId, auditName, onUploadComplete }) => {
   const [files, setFiles] = useState([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [config, setConfig] = useState(AZURE_STORAGE_CONFIG);
-  const [showConfig, setShowConfig] = useState(false);
+  const [config] = useState(AZURE_STORAGE_CONFIG);
   const fileInputRef = useRef(null);
 
   const handleDragOver = useCallback((e) => {
@@ -303,15 +251,15 @@ const FileUpload = ({ auditId, auditName, onUploadComplete }) => {
 
   const uploadToAzureBlob = async (fileObj) => {
     try {
-      // Create Blob Service Client
-      const blobServiceUrl = `https://${config.accountName}.blob.core.windows.net?${config.sasToken}`;
-      const blobServiceClient = new BlobServiceClient(blobServiceUrl);
+      // Build container URL using account name, container name, and SAS token
+      // Format: https://<accountName>.blob.core.windows.net/<containerName>?<sasToken>
+      const containerUrl = `https://${config.accountName}.blob.core.windows.net/${config.containerName}?${config.sasToken}`;
 
-      // Get container client
-      const containerClient = blobServiceClient.getContainerClient(config.containerName);
+      // Create Container Client with SAS URL
+      const containerClient = new ContainerClient(containerUrl);
 
-      // Create unique blob name with audit folder structure
-      const blobName = `${auditId || 'general'}/${Date.now()}-${fileObj.name}`;
+      // Create unique blob name directly in container (no subfolders)
+      const blobName = `${auditId || 'general'}-${Date.now()}-${fileObj.name}`;
       const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
       // Upload with progress tracking
@@ -510,55 +458,6 @@ const FileUpload = ({ auditId, auditName, onUploadComplete }) => {
         </div>
       )}
 
-      {/* Azure Configuration */}
-      <div style={styles.configSection}>
-        <div
-          style={{ ...styles.configTitle, cursor: 'pointer' }}
-          onClick={() => setShowConfig(!showConfig)}
-        >
-          <span>☁️</span> Azure Blob Storage Configuration
-          <span style={{ marginLeft: 'auto', fontSize: '12px' }}>{showConfig ? '▼' : '▶'}</span>
-        </div>
-
-        {showConfig && (
-          <div style={styles.configGrid}>
-            <div style={styles.configItem}>
-              <label style={styles.configLabel}>Storage Account</label>
-              <input
-                style={styles.input}
-                value={config.accountName}
-                onChange={(e) => setConfig(prev => ({ ...prev, accountName: e.target.value }))}
-                placeholder="your-storage-account"
-              />
-            </div>
-            <div style={styles.configItem}>
-              <label style={styles.configLabel}>Container Name</label>
-              <input
-                style={styles.input}
-                value={config.containerName}
-                onChange={(e) => setConfig(prev => ({ ...prev, containerName: e.target.value }))}
-                placeholder="audit-evidence"
-              />
-            </div>
-            <div style={{ ...styles.configItem, gridColumn: '1 / -1' }}>
-              <label style={styles.configLabel}>SAS Token</label>
-              <input
-                style={styles.input}
-                type="password"
-                value={config.sasToken}
-                onChange={(e) => setConfig(prev => ({ ...prev, sasToken: e.target.value }))}
-                placeholder="sv=2022-11-02&ss=b&srt=sco..."
-              />
-            </div>
-            <div style={{ gridColumn: '1 / -1', fontSize: '12px', color: '#64748b', marginTop: '8px' }}>
-              <strong>Tip:</strong> For production, use environment variables:
-              <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px' }}>
-                REACT_APP_AZURE_STORAGE_ACCOUNT
-              </code>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 };
