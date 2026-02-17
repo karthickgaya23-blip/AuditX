@@ -1,6 +1,6 @@
 import React, { useState, useReducer, useEffect } from 'react';
 import FileUpload from './components/FileUpload';
-import { transformAuditDocument, getSampleCosmosAudit, fetchAuditsFromCosmosDB } from './services/cosmosDbService';
+import { transformAuditDocument, fetchAuditsFromCosmosDB } from './services/cosmosDbService';
 // ==================== REDUX-LIKE STATE MANAGEMENT ====================
 const initialState = {
   currentPersona: 'auditor',
@@ -2322,7 +2322,7 @@ export default function AuditXApp() {
         console.log('Attempting to fetch data from Cosmos DB...');
         console.log('Database: AuditResults, Container: Audits');
 
-        // Try to fetch from Cosmos DB
+        // Fetch from Cosmos DB only
         const documents = await fetchAuditsFromCosmosDB();
 
         if (documents && documents.length > 0) {
@@ -2333,63 +2333,13 @@ export default function AuditXApp() {
 
           dispatch({ type: ACTIONS.SET_COSMOS_AUDITS, payload: cosmosAudits });
         } else {
-          console.log('No documents found, using sample data');
-          loadSampleData();
+          console.log('No documents found in Cosmos DB');
+          dispatch({ type: ACTIONS.SET_COSMOS_AUDITS, payload: [] });
         }
       } catch (error) {
         console.error('Failed to fetch from Cosmos DB:', error);
         dispatch({ type: ACTIONS.SET_COSMOS_ERROR, payload: error.message });
-        loadSampleData();
       }
-    };
-
-    const loadSampleData = () => {
-      // Transform sample Cosmos DB data
-      const sampleCosmosData = getSampleCosmosAudit();
-      const transformedAudit = transformAuditDocument(sampleCosmosData);
-
-      // Add additional sample audits from Cosmos DB format
-      const cosmosAudits = [
-        transformedAudit,
-        // Add more sample audits with variations
-        {
-          ...transformAuditDocument({
-            ...sampleCosmosData,
-            id: 'cosmos-002',
-            auditId: 'cosmos-002',
-            overallScore: 72,
-            passStatus: 1,
-            primaryDocumentName: 'Contoso_Analytics_Azure_Assessment_v2.docx',
-            moduleBScore: {
-              ...sampleCosmosData.moduleBScore,
-              moduleName: 'Analytics on Azure Specialization',
-              score: 65
-            }
-          }),
-          dueDate: '2026-02-20',
-          slaDate: '2026-03-01'
-        },
-        {
-          ...transformAuditDocument({
-            ...sampleCosmosData,
-            id: 'cosmos-003',
-            auditId: 'cosmos-003',
-            overallScore: 88,
-            passStatus: 0,
-            primaryDocumentName: 'TechCorp_Kubernetes_Azure_Audit_v1.docx',
-            moduleBScore: {
-              ...sampleCosmosData.moduleBScore,
-              moduleName: 'Kubernetes on Microsoft Azure',
-              score: 85
-            }
-          }),
-          status: 'approved',
-          dueDate: '2026-02-25',
-          slaDate: '2026-03-05'
-        }
-      ];
-
-      dispatch({ type: ACTIONS.SET_COSMOS_AUDITS, payload: cosmosAudits });
     };
 
     loadCosmosData();

@@ -184,6 +184,12 @@ const generateCosmosAuthToken = async (verb, resourceType, resourceLink, date, m
 
 // Fetch audits from Cosmos DB using REST API
 export const fetchAuditsFromCosmosDB = async (config = COSMOS_CONFIG) => {
+  // Check if credentials are configured
+  if (!config.key) {
+    console.log('Cosmos DB key not configured - returning empty array');
+    return [];
+  }
+
   try {
     const resourceLink = `dbs/${config.databaseId}/colls/${config.containerId}`;
     const resourceType = 'docs';
@@ -216,12 +222,6 @@ export const fetchAuditsFromCosmosDB = async (config = COSMOS_CONFIG) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Cosmos DB error:', response.status, errorText);
-
-      // If CORS error or auth fails, fall back to sample data
-      if (response.status === 0 || response.status === 401 || response.status === 403) {
-        console.log('Falling back to sample data due to CORS/Auth issues');
-        return [getSampleCosmosAudit()];
-      }
       throw new Error(`Cosmos DB request failed: ${response.status}`);
     }
 
@@ -231,136 +231,8 @@ export const fetchAuditsFromCosmosDB = async (config = COSMOS_CONFIG) => {
     return data.Documents || data._embedded || [];
   } catch (error) {
     console.error('Error fetching from Cosmos DB:', error);
-
-    // Check if it's a CORS error (common in browser apps)
-    if (error.message.includes('CORS') || error.message.includes('NetworkError') || error.name === 'TypeError') {
-      console.log('CORS issue detected. For browser apps, consider:');
-      console.log('1. Using Azure Functions as a proxy');
-      console.log('2. Enabling CORS on Cosmos DB (limited)');
-      console.log('3. Using resource tokens instead of master key');
-      console.log('Returning sample data for demo purposes...');
-      return [getSampleCosmosAudit()];
-    }
-
     throw error;
   }
-};
-
-// Sample audit data based on the provided schema
-export const getSampleCosmosAudit = () => {
-  return {
-    "id": "90ca5096-98dc-4e44-9c2e-1756c5ea223d",
-    "auditId": "90ca5096-98dc-4e44-9c2e-1756c5ea223d",
-    "timestamp": "2026-02-13T19:20:09.5460776Z",
-    "checklistVersion": "1.8",
-    "primaryDocumentName": "e6e20752-1bc0-44d3-a4ab-0cef8e885e33_Azure_RAG_Solution_Portfolio_Assessment_v3.docx",
-    "secondaryDocumentName": null,
-    "overallScore": 35,
-    "passStatus": 2,
-    "moduleAScore": {
-      "moduleId": "A",
-      "moduleName": "Azure Essentials Cloud Foundation",
-      "score": 57.49999999999999,
-      "maxScore": 100,
-      "weightedScore": 23,
-      "totalControls": 7,
-      "passedControls": 1,
-      "partialControls": 6,
-      "failedControls": 0,
-      "controlScores": [
-        { "controlId": "A-1.1", "controlName": "Cloud & AI Adoption Business Strategy", "score": 100, "weight": 6, "weightedScore": 6, "status": 0 },
-        { "controlId": "A-1.2", "controlName": "Cloud & AI Adoption Plan", "score": 50, "weight": 6, "weightedScore": 3, "status": 1 },
-        { "controlId": "A-2.1", "controlName": "Security & Governance Tooling", "score": 50, "weight": 7, "weightedScore": 3.5, "status": 1 },
-        { "controlId": "A-2.2", "controlName": "Well-Architected Workloads", "score": 50, "weight": 7, "weightedScore": 3.5, "status": 1 },
-        { "controlId": "A-3.1", "controlName": "Repeatable Deployment", "score": 50, "weight": 7, "weightedScore": 3.5, "status": 1 },
-        { "controlId": "A-3.2", "controlName": "Plan for Skilling", "score": 50, "weight": 3, "weightedScore": 1.5, "status": 1 },
-        { "controlId": "A-3.3", "controlName": "Operations Management Tooling", "score": 50, "weight": 4, "weightedScore": 2, "status": 1 }
-      ]
-    },
-    "moduleBScore": {
-      "moduleId": "B",
-      "moduleName": "AI Platform on Microsoft Azure",
-      "score": 20,
-      "maxScore": 100,
-      "weightedScore": 12,
-      "totalControls": 7,
-      "passedControls": 0,
-      "partialControls": 2,
-      "failedControls": 5,
-      "controlScores": [
-        { "controlId": "B-1.1", "controlName": "Portfolio Assessment", "score": 50, "weight": 12, "weightedScore": 6, "status": 1 },
-        { "controlId": "B-2.1", "controlName": "Solution Design", "score": 50, "weight": 12, "weightedScore": 6, "status": 1 },
-        { "controlId": "B-2.2", "controlName": "Well-Architected Review", "score": 0, "weight": 8, "weightedScore": 0, "status": 2 },
-        { "controlId": "B-2.3", "controlName": "Proof of Concept", "score": 0, "weight": 8, "weightedScore": 0, "status": 2 },
-        { "controlId": "B-3.1", "controlName": "Deployment", "score": 0, "weight": 10, "weightedScore": 0, "status": 2 },
-        { "controlId": "B-4.1", "controlName": "Service Validation and Testing", "score": 0, "weight": 5, "weightedScore": 0, "status": 2 },
-        { "controlId": "B-4.2", "controlName": "Post-deployment Documentation", "score": 0, "weight": 5, "weightedScore": 0, "status": 2 }
-      ]
-    },
-    "findings": [
-      {
-        "controlId": "A-1.1",
-        "controlName": "Cloud & AI Adoption Business Strategy",
-        "status": 0,
-        "score": 100,
-        "evidenceFound": ["finops review", "case assessment", "business strategy document"],
-        "evidenceMissing": [],
-        "recommendations": []
-      },
-      {
-        "controlId": "A-1.2",
-        "controlName": "Cloud & AI Adoption Plan",
-        "status": 1,
-        "score": 50,
-        "evidenceFound": ["cost management report", "finops analysis", "preliminary adoption plan"],
-        "evidenceMissing": ["pricing calculator output", "detailed devops assessment report", "finalized project planning document"],
-        "recommendations": ["Complete the pricing calculator output", "Enhance project planning section"]
-      },
-      {
-        "controlId": "B-1.1",
-        "controlName": "Portfolio Assessment",
-        "status": 1,
-        "score": 50,
-        "evidenceFound": ["business need identification", "description of current challenges"],
-        "evidenceMissing": ["comprehensive AI readiness analysis", "data governance strategies"],
-        "recommendations": ["Include detailed AI use cases report", "Develop data governance framework"]
-      },
-      {
-        "controlId": "B-2.1",
-        "controlName": "Solution Design",
-        "status": 1,
-        "score": 50,
-        "evidenceFound": ["RAG solution architecture overview", "RAI implementation elements"],
-        "evidenceMissing": ["detailed HLD and LLD documents", "comprehensive impact assessment"],
-        "recommendations": ["Create detailed HLD and LLD documents", "Conduct complete impact assessment"]
-      },
-      {
-        "controlId": "B-2.2",
-        "controlName": "Well-Architected Review",
-        "status": 2,
-        "score": 0,
-        "evidenceFound": [],
-        "evidenceMissing": ["completed Well-Architected review document"],
-        "recommendations": ["Perform Well-Architected review for RAG solution"]
-      }
-    ],
-    "keyStrengths": ["Cloud & AI Adoption Business Strategy: Strong evidence found"],
-    "keyGaps": [
-      "Cloud & AI Adoption Plan: pricing calculator output",
-      "Security & Governance Tooling: security baseline documentation",
-      "Well-Architected Workloads: WAR documentation"
-    ],
-    "recommendations": [
-      "Include a detailed report on AI use cases and their relevance",
-      "Develop and document a data governance framework",
-      "Create detailed HLD and LLD documents",
-      "Perform a well-architected review",
-      "Create deployment documentation",
-      "Establish testing protocols",
-      "Develop SOPs and runbooks"
-    ],
-    "executiveSummary": "## Executive Summary\n\n**Audit Result: FAIL**\n**Overall Score: 35.0%**\n\n### Module Scores\n- Module A (Azure Essentials Cloud Foundation): 57.5%\n- Module B (AI Platform on Microsoft Azure): 20.0%"
-  };
 };
 
 // Export configuration for runtime updates
@@ -370,8 +242,7 @@ export { COSMOS_CONFIG };
 const cosmosDbService = {
   COSMOS_CONFIG,
   transformAuditDocument,
-  fetchAuditsFromCosmosDB,
-  getSampleCosmosAudit
+  fetchAuditsFromCosmosDB
 };
 
 export default cosmosDbService;
