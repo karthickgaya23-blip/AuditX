@@ -784,7 +784,7 @@ const AuditQueue = ({ filterStatus, selectedAudit, dispatch, cosmosAudits, cosmo
                   width: '70px',
                   height: '70px'
                 }}>
-                  <div style={{ fontSize: '20px', fontWeight: '800' }}>{score}%</div>
+                  <div style={{ fontSize: '20px', fontWeight: '800' }}>{Math.round(score)}%</div>
                   <div style={{ fontSize: '9px', fontWeight: '600', opacity: 0.8 }}>SCORE</div>
                 </div>
               </div>
@@ -933,15 +933,6 @@ const EvidenceViewer = ({ audit, onUploadComplete }) => {
         >
           💡 Recommendations
         </button>
-        <button
-          style={{
-            ...tabStyles.tab,
-            ...(activeTab === 'upload' ? tabStyles.tabActive : {})
-          }}
-          onClick={() => setActiveTab('upload')}
-        >
-          ☁️ Upload
-        </button>
       </div>
 
       {/* Module Scores Tab */}
@@ -1025,7 +1016,7 @@ const EvidenceViewer = ({ audit, onUploadComplete }) => {
                       <tr key={idx}>
                         <td style={styles.td}><strong>{control.controlId}</strong></td>
                         <td style={styles.td}>{control.controlName}</td>
-                        <td style={styles.td}>{control.score}%</td>
+                        <td style={styles.td}>{Math.round(control.score)}%</td>
                         <td style={styles.td}>{control.weight}</td>
                         <td style={styles.td}>
                           <span style={{
@@ -1094,7 +1085,7 @@ const EvidenceViewer = ({ audit, onUploadComplete }) => {
                       <tr key={idx}>
                         <td style={styles.td}><strong>{control.controlId}</strong></td>
                         <td style={styles.td}>{control.controlName}</td>
-                        <td style={styles.td}>{control.score}%</td>
+                        <td style={styles.td}>{Math.round(control.score)}%</td>
                         <td style={styles.td}>{control.weight}</td>
                         <td style={styles.td}>
                           <span style={{
@@ -1228,7 +1219,7 @@ const EvidenceViewer = ({ audit, onUploadComplete }) => {
                         <span style={{ color: '#475569' }}>{finding.controlName}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontWeight: '700', color: '#1e293b' }}>{finding.score}%</span>
+                        <span style={{ fontWeight: '700', color: '#1e293b' }}>{Math.round(finding.score)}%</span>
                         <span style={{
                           ...styles.badge,
                           background: statusStyle.bg,
@@ -1328,14 +1319,6 @@ const EvidenceViewer = ({ audit, onUploadComplete }) => {
         </div>
       )}
 
-      {/* Upload Tab */}
-      {activeTab === 'upload' && (
-        <FileUpload
-          auditId={audit.id}
-          auditName={audit.name}
-          onUploadComplete={onUploadComplete}
-        />
-      )}
     </div>
   );
 };
@@ -1446,7 +1429,7 @@ const AgentResponse = ({ prompt, audit }) => {
               color: getScoreColor(audit.complianceScore).color,
               marginBottom: '12px'
             }}>
-              Overall Score: {audit.complianceScore}%
+              Overall Score: {Math.round(audit.complianceScore)}%
             </div>
             <table style={styles.table}>
               <thead>

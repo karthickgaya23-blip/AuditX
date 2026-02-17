@@ -4,8 +4,13 @@
 
 // Cosmos DB Configuration - Uses environment variables for security
 // Set these in .env.local file (not committed to git)
+// In development, we use a proxy to avoid CORS issues
+const isDevelopment = process.env.NODE_ENV === 'development';
 const COSMOS_CONFIG = {
-  endpoint: process.env.REACT_APP_COSMOS_ENDPOINT || 'https://audit.documents.azure.com:443/',
+  endpoint: isDevelopment
+    ? '/cosmos-api/'
+    : (process.env.REACT_APP_COSMOS_ENDPOINT || 'https://audit.documents.azure.com:443/'),
+  actualEndpoint: process.env.REACT_APP_COSMOS_ENDPOINT || 'https://audit.documents.azure.com:443/',
   key: process.env.REACT_APP_COSMOS_KEY || '',
   databaseId: process.env.REACT_APP_COSMOS_DATABASE || 'AuditResults',
   containerId: process.env.REACT_APP_COSMOS_CONTAINER || 'Audits'
