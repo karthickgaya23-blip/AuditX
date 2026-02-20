@@ -1,6 +1,7 @@
 import React, { useState, useReducer, useEffect } from 'react';
 import FileUpload from './components/FileUpload';
 import { transformAuditDocument, fetchAuditsFromCosmosDB } from './services/cosmosDbService';
+import { queryRAG, checkRAGConfiguration } from './services/ragService';
 // ==================== REDUX-LIKE STATE MANAGEMENT ====================
 const initialState = {
   currentPersona: 'auditor',
@@ -37,29 +38,33 @@ const initialState = {
   
   // Sample Prompts for Auditors
   samplePrompts: {
-    'AI/ML Specialization': [
-      'List 2 customer workloads with 12-month runtime requirement',
-      'Show employee skills and certification dates',
-      'Cross-reference computed evidence score',
-      'How was workload compliance calculated?'
+    'Module A - Readiness': [
+      'Does the partner have a defined process that captures data-driven business strategies for cloud & AI to guide customer decisions, including strategy review, personalized recommendations, and maximizing cloud business value?',
+      'Does the partner have a strategy for planning and tracking completion of cloud & AI adoption projects, including cost management reports and DevOps capability assessments?'
     ],
-    'Data & Analytics': [
-      'Display 3+ data platform workloads with metrics',
-      'Verify DP-203/DP-900/DP-100 certifications',
-      'Show pipeline SLA compliance data',
-      'Calculate score methodology breakdown'
+    'Module A - Design & Govern': [
+      'Does the partner demonstrate ability to deploy required governance tools for compliance and security, establishing a security baseline with Microsoft Defender for Cloud or 3rd party solution?',
+      'Does the partner design well-architected workloads using Architecture Center reference architectures and complete a Well-Architected Review before deployment?'
     ],
-    'Security': [
-      'Challenge compliance score for AZ-500',
-      'Show security workload timestamps',
-      'List employees with expired certifications',
-      'Recalculate score showing methodology'
+    'Module A - Managed & Optimize': [
+      'Does the partner demonstrate adherence to Azure Landing Zone (ALZ) design areas through repeatable deployment, covering identity (Entra ID), networking topology, and resource organization for customers?',
+      'Does the partner document a skilling plan for customers\' technical staff covering new skills, TAGA assessment for AI specialization, and knowledge transfer resources?',
+      'Does the partner demonstrate use of Azure operations management tooling (Azure Monitor, Azure Automation, or Azure Backup/Site Recovery) with automated security and compliance checks?'
     ],
-    'General': [
-      'Explain discrepancies in scoring logic',
-      'Show mapping between employees and certs',
-      'Validate continuous 12+ month runtime',
-      'Cross-check Microsoft Learn transcripts'
+    'Module B - Assess': [
+      'Does the partner demonstrate a consistent approach to assessing customer AI requirements including requirements analysis, business need identification, Azure AI solution identification, data needs, security/compliance needs, GenAI Readiness Assessment, and AI Solution Play alignment?'
+    ],
+    'Module B - Design & PoC': [
+      'Does the partner provide solution designs covering user roles, data source, ingestion engine, data storage, encryption, RAI Standard review, impact assessment, security, sizing, monitoring, cost control, model selection, inferencing/deployment, DevOps/AIOps, and AI architecture?',
+      'Does the partner demonstrate usage of Azure Well-Architected Review or Azure Well Architected Assessment for AI workload, completing output from a minimum of two pillars per workload?',
+      'Does the partner provide evidence of a completed Proof of Concept (PoC) or pilot project validating design decisions for Azure AI Foundry (including Azure OpenAI Service and Agent Service)?'
+    ],
+    'Module B - Deployment': [
+      'Does the partner demonstrate capability to implement AI solutions deployed in production environments including Azure AI Foundry, covering the entire project sequence from design to production deployment?'
+    ],
+    'Module B - Review & Release': [
+      'Does the partner validate deployments by demonstrating testing and performance evaluation against end user expectations, Azure best practices (application design, monitoring, APM, code deployment, infrastructure, testing), and Well-Architected Operational Excellence review post-deployment?',
+      'Does the partner provide post-deployment documentation covering decisions, architectural designs, procedures implemented, and Standard Operating Procedures for business-as-usual operations teams?'
     ]
   },
   
@@ -466,6 +471,86 @@ const styles = {
   evidencePanel: {
     maxHeight: '400px',
     overflowY: 'auto'
+  },
+  // Modal styles for AI Agent
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'rgba(0, 0, 0, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+    backdropFilter: 'blur(4px)'
+  },
+  modalContent: {
+    background: '#fff',
+    borderRadius: '16px',
+    width: '90%',
+    maxWidth: '1200px',
+    height: '85vh',
+    display: 'flex',
+    flexDirection: 'column',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    overflow: 'hidden'
+  },
+  modalHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '20px 24px',
+    borderBottom: '1px solid #e2e8f0',
+    background: 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)',
+    color: '#fff'
+  },
+  modalTitle: {
+    fontSize: '20px',
+    fontWeight: '700',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px'
+  },
+  modalCloseBtn: {
+    background: 'rgba(255,255,255,0.2)',
+    border: 'none',
+    color: '#fff',
+    width: '40px',
+    height: '40px',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    fontSize: '20px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'background 0.2s'
+  },
+  modalBody: {
+    flex: 1,
+    padding: '24px',
+    overflowY: 'auto',
+    display: 'grid',
+    gridTemplateColumns: '1fr 300px',
+    gap: '24px'
+  },
+  openAgentBtn: {
+    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+    color: '#fff',
+    border: 'none',
+    padding: '16px 24px',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    fontSize: '15px',
+    fontWeight: '600',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '10px',
+    width: '100%',
+    transition: 'transform 0.2s, box-shadow 0.2s',
+    boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)'
   }
 };
 
@@ -1285,28 +1370,47 @@ const EvidenceViewer = ({ audit, onUploadComplete }) => {
                   border: '1px solid #e2e8f0',
                   borderRadius: '10px',
                   padding: '16px',
-                  marginBottom: '12px',
-                  display: 'flex',
-                  gap: '12px',
-                  alignItems: 'flex-start'
+                  marginBottom: '12px'
                 }}>
+                  {/* Control ID Header */}
                   <div style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '50%',
-                    background: '#dbeafe',
-                    color: '#1d4ed8',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: '700',
-                    fontSize: '12px',
-                    flexShrink: 0
+                    gap: '8px',
+                    marginBottom: '12px'
                   }}>
-                    {idx + 1}
+                    <div style={{
+                      background: '#dbeafe',
+                      color: '#1d4ed8',
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontWeight: '600',
+                      fontSize: '12px'
+                    }}>
+                      {rec.controlId || `Rec ${idx + 1}`}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.5' }}>
-                    {rec}
+                  {/* Recommendation Items */}
+                  <div style={{ paddingLeft: '8px' }}>
+                    {rec.items && rec.items.length > 0 ? (
+                      rec.items.map((item, itemIdx) => (
+                        <div key={itemIdx} style={{
+                          display: 'flex',
+                          gap: '8px',
+                          alignItems: 'flex-start',
+                          marginBottom: '8px'
+                        }}>
+                          <span style={{ color: '#3b82f6', fontSize: '14px' }}>•</span>
+                          <span style={{ fontSize: '13px', color: '#374151', lineHeight: '1.5' }}>
+                            {item}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ fontSize: '13px', color: '#374151', lineHeight: '1.5' }}>
+                        {typeof rec === 'string' ? rec : 'No details available'}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1323,15 +1427,90 @@ const EvidenceViewer = ({ audit, onUploadComplete }) => {
   );
 };
 
-// Agent Response Component
+// Agent Response Component - RAG-enabled
 const AgentResponse = ({ prompt, audit }) => {
   const [loading, setLoading] = useState(true);
-  
+  const [response, setResponse] = useState(null);
+  const [error, setError] = useState(null);
+  const [isRAGEnabled, setIsRAGEnabled] = useState(false);
+
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1500);
-    return () => clearTimeout(timer);
-  }, []);
-  
+    const fetchResponse = async () => {
+      setLoading(true);
+      setError(null);
+      setResponse(null);
+
+      // Check if RAG is configured
+      const ragConfig = checkRAGConfiguration();
+      setIsRAGEnabled(ragConfig.isReady);
+
+      if (ragConfig.isReady) {
+        // Use real RAG
+        try {
+          console.log('RAG: Querying with prompt:', prompt);
+          const ragResponse = await queryRAG(prompt, audit);
+          setResponse(ragResponse);
+          setLoading(false);
+        } catch (err) {
+          console.error('RAG query failed:', err);
+          setError(err.message);
+          // Fallback to mock response
+          setResponse(generateMockResponse(prompt, audit));
+          setLoading(false);
+        }
+      } else {
+        // Fallback to mock response when RAG not configured
+        console.log('RAG not configured, using mock response');
+        setTimeout(() => {
+          setResponse(generateMockResponse(prompt, audit));
+          setLoading(false);
+        }, 1500);
+      }
+    };
+
+    fetchResponse();
+  }, [prompt, audit]);
+
+  // Generate mock response for demo/fallback
+  const generateMockResponse = (promptText, auditData) => {
+    if (promptText.toLowerCase().includes('workload') && promptText.toLowerCase().includes('12-month')) {
+      return {
+        content: auditData
+          ? `Found ${auditData.workloadDetails?.length || 0} workloads for analysis. The workload runtime verification requires evidence of 12+ months continuous operation. Based on the audit evidence, compliance status has been assessed for each workload.`
+          : 'Select an audit to view workload analysis.',
+        sources: [],
+        isMock: true
+      };
+    }
+
+    if (promptText.toLowerCase().includes('employee') || promptText.toLowerCase().includes('certification')) {
+      return {
+        content: auditData
+          ? `Employee certification analysis for ${auditData.name}: The audit evidence shows certification records that need verification against Microsoft Learn transcripts. Key certifications being validated include: ${auditData.certifications?.join(', ') || 'AI-102, DP-100'}.`
+          : 'Select an audit to view certification details.',
+        sources: [],
+        isMock: true
+      };
+    }
+
+    if (promptText.toLowerCase().includes('score') || promptText.toLowerCase().includes('compliance')) {
+      return {
+        content: auditData
+          ? `Compliance Score Analysis:\n\nOverall Score: ${Math.round(auditData.complianceScore || 0)}%\n\nThe score is calculated based on:\n- Workload Runtime (40% weight)\n- Employee Certifications (35% weight)\n- Evidence Documentation (25% weight)\n\nThis methodology aligns with Azure Specialization requirements.`
+          : 'Select an audit to view score breakdown.',
+        sources: [],
+        isMock: true
+      };
+    }
+
+    return {
+      content: 'Analysis complete. The audit evidence has been verified against Microsoft Learn transcripts and certification records. All data points have been cross-referenced with the partner portal submissions.',
+      sources: [],
+      isMock: true
+    };
+  };
+
+  // Loading state
   if (loading) {
     return (
       <div style={{ ...styles.agentResponse, background: '#f8fafc', borderColor: '#e2e8f0' }}>
@@ -1344,154 +1523,192 @@ const AgentResponse = ({ prompt, audit }) => {
             borderRadius: '50%',
             animation: 'spin 1s linear infinite'
           }}></div>
-          <span style={{ color: '#64748b', fontWeight: '600' }}>Foundry IQ Agent analyzing evidence...</span>
+          <span style={{ color: '#64748b', fontWeight: '600' }}>
+            {isRAGEnabled ? 'Foundry IQ Agent querying evidence...' : 'Foundry IQ Agent analyzing evidence...'}
+          </span>
         </div>
       </div>
     );
   }
-  
-  // Generate mock response based on prompt
-  const generateResponse = () => {
-    if (prompt.toLowerCase().includes('workload') && prompt.toLowerCase().includes('12-month')) {
-      return {
-        title: 'Workload Runtime Analysis',
-        content: audit ? (
-          <div>
-            <p style={{ marginBottom: '12px' }}>Found <strong>{audit.workloadDetails.length}</strong> workloads meeting the 12-month runtime requirement:</p>
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.th}>Workload</th>
-                  <th style={styles.th}>Runtime</th>
-                  <th style={styles.th}>Uptime %</th>
-                  <th style={styles.th}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {audit.workloadDetails.slice(0, 2).map((w, i) => {
-                  const start = new Date(w.startDate);
-                  const months = Math.floor((new Date() - start) / (1000 * 60 * 60 * 24 * 30));
-                  return (
-                    <tr key={i}>
-                      <td style={styles.td}>{w.name}</td>
-                      <td style={styles.td}>{months} months</td>
-                      <td style={styles.td}>{w.uptime}%</td>
-                      <td style={styles.td}>
-                        <span style={{ color: months >= 12 ? '#16a34a' : '#dc2626' }}>
-                          {months >= 12 ? '✓ Compliant' : '⚠ Below 12 months'}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : 'Select an audit to view workload analysis.'
-      };
-    }
-    
-    if (prompt.toLowerCase().includes('employee') || prompt.toLowerCase().includes('certification')) {
-      return {
-        title: 'Employee Certification Analysis',
-        content: audit ? (
-          <div>
-            <p style={{ marginBottom: '12px' }}>
-              <strong>{audit.employees.length}</strong> certified employees found for {audit.name}:
-            </p>
-            {audit.employees.map((e, i) => (
-              <div key={i} style={{ 
-                padding: '12px', 
-                background: '#f8fafc', 
-                borderRadius: '8px',
-                marginBottom: '8px'
-              }}>
-                <div style={{ fontWeight: '700' }}>{e.name}</div>
-                <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
-                  <span style={styles.certBadge}>{e.cert}</span>
-                  Certified: {e.certDate} | Expires: {e.expiryDate}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : 'Select an audit to view certification details.'
-      };
-    }
-    
-    if (prompt.toLowerCase().includes('score') || prompt.toLowerCase().includes('compliance')) {
-      return {
-        title: 'Compliance Score Methodology',
-        content: audit ? (
-          <div>
-            <div style={{ 
-              fontSize: '24px', 
-              fontWeight: '800', 
-              color: getScoreColor(audit.complianceScore).color,
-              marginBottom: '12px'
-            }}>
-              Overall Score: {Math.round(audit.complianceScore)}%
-            </div>
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.th}>Criteria</th>
-                  <th style={styles.th}>Weight</th>
-                  <th style={styles.th}>Score</th>
-                  <th style={styles.th}>Weighted</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style={styles.td}>Workload Runtime (12+ months)</td>
-                  <td style={styles.td}>40%</td>
-                  <td style={styles.td}>{Math.min(100, audit.workloads * 30)}%</td>
-                  <td style={styles.td}>{(Math.min(100, audit.workloads * 30) * 0.4).toFixed(1)}%</td>
-                </tr>
-                <tr>
-                  <td style={styles.td}>Employee Certifications</td>
-                  <td style={styles.td}>35%</td>
-                  <td style={styles.td}>{Math.min(100, audit.employees.length * 50)}%</td>
-                  <td style={styles.td}>{(Math.min(100, audit.employees.length * 50) * 0.35).toFixed(1)}%</td>
-                </tr>
-                <tr>
-                  <td style={styles.td}>Evidence Documentation</td>
-                  <td style={styles.td}>25%</td>
-                  <td style={styles.td}>{Math.min(100, audit.evidenceItems * 5)}%</td>
-                  <td style={styles.td}>{(Math.min(100, audit.evidenceItems * 5) * 0.25).toFixed(1)}%</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        ) : 'Select an audit to view score breakdown.'
-      };
-    }
-    
-    return {
-      title: 'Agent Response',
-      content: <p>Analysis complete. The audit evidence has been verified against Microsoft Learn transcripts and certification records. All data points have been cross-referenced with the partner portal submissions.</p>
-    };
-  };
-  
-  const response = generateResponse();
-  
-  return (
-    <div style={styles.agentResponse}>
-      <div style={styles.responseHeader}>
-        <span style={{
-          width: '24px',
-          height: '24px',
-          background: '#22c55e',
-          borderRadius: '50%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '12px'
-        }}>🤖</span>
-        Foundry IQ Agent: {response.title}
+
+  // Error state (only shown if no fallback response)
+  if (error && !response) {
+    return (
+      <div style={{ ...styles.agentResponse, background: '#fef2f2', borderColor: '#fecaca' }}>
+        <div style={{ ...styles.responseHeader, color: '#dc2626' }}>
+          <span style={{
+            width: '24px',
+            height: '24px',
+            background: '#dc2626',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '12px',
+            color: 'white'
+          }}>!</span>
+          Error
+        </div>
+        <p style={{ color: '#dc2626' }}>Failed to process query: {error}</p>
       </div>
-      {response.content}
-    </div>
-  );
+    );
+  }
+
+  // RAG Response render
+  if (response) {
+    const isRealRAG = !response.isMock && !response.error;
+
+    return (
+      <div style={styles.agentResponse}>
+        <div style={styles.responseHeader}>
+          <span style={{
+            width: '24px',
+            height: '24px',
+            background: isRealRAG ? '#22c55e' : '#f59e0b',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '12px'
+          }}>{isRealRAG ? 'AI' : '!'}</span>
+          Foundry IQ Agent {response.isMock ? '(Demo Mode)' : ''}
+        </div>
+
+        {/* Main content */}
+        <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+          {response.content}
+        </div>
+
+        {/* Sources section - only for real RAG responses */}
+        {response.sources && response.sources.length > 0 && (
+          <div style={{
+            marginTop: '16px',
+            paddingTop: '12px',
+            borderTop: '1px solid #e2e8f0'
+          }}>
+            <div style={{
+              fontSize: '12px',
+              fontWeight: '600',
+              color: '#64748b',
+              marginBottom: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              📚 Verified Sources ({response.sources.length} documents)
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {response.sources.map((source, idx) => (
+                <div key={idx} style={{
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  transition: 'all 0.2s'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                    {/* Source number badge */}
+                    <div style={{
+                      background: '#3b82f6',
+                      color: '#fff',
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      flexShrink: 0
+                    }}>
+                      {source.sourceNumber || idx + 1}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      {/* Document title */}
+                      <div style={{
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: '#1e3a5f',
+                        marginBottom: '4px'
+                      }}>
+                        {source.documentName || `Document ${idx + 1}`}
+                      </div>
+                      {/* Document ID / Reference */}
+                      {source.documentId && (
+                        <div style={{
+                          fontSize: '11px',
+                          color: '#64748b',
+                          marginBottom: '4px'
+                        }}>
+                          ID: {source.documentId}
+                        </div>
+                      )}
+                      {/* Content preview */}
+                      {source.contentPreview && source.contentPreview.length > 10 && (
+                        <div style={{
+                          fontSize: '11px',
+                          color: '#94a3b8',
+                          fontStyle: 'italic',
+                          lineHeight: '1.4'
+                        }}>
+                          "{source.contentPreview}"
+                        </div>
+                      )}
+                      {/* Relevance score */}
+                      {source.relevanceScore && (
+                        <div style={{
+                          marginTop: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          <span style={{
+                            fontSize: '10px',
+                            color: '#64748b'
+                          }}>
+                            Relevance:
+                          </span>
+                          <div style={{
+                            background: '#e2e8f0',
+                            borderRadius: '4px',
+                            height: '6px',
+                            width: '60px',
+                            overflow: 'hidden'
+                          }}>
+                            <div style={{
+                              background: source.relevanceScore > 5 ? '#22c55e' : source.relevanceScore > 2 ? '#eab308' : '#94a3b8',
+                              height: '100%',
+                              width: `${Math.min(source.relevanceScore * 10, 100)}%`
+                            }} />
+                          </div>
+                          <span style={{ fontSize: '10px', color: '#64748b' }}>
+                            {source.relevanceScore?.toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Processing stats - only for real RAG responses */}
+        {response.processingTimeMs && !response.isMock && (
+          <div style={{
+            fontSize: '11px',
+            color: '#94a3b8',
+            marginTop: '8px'
+          }}>
+            Processed in {response.processingTimeMs}ms | {response.retrievalCount || 0} documents retrieved
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return null;
 };
 
 // Prompt Surface Component
@@ -1560,6 +1777,201 @@ const PromptSurface = ({ selectedAudit, promptHistory, dispatch, samplePrompts }
         📋 Sample Auditor Verification Prompts
       </h4>
       <SamplePromptsPanel samplePrompts={samplePrompts} onPromptSelect={handleSamplePrompt} />
+    </div>
+  );
+};
+
+// AI Agent Modal Component - Full screen experience
+const AIAgentModal = ({ isOpen, onClose, selectedAudit, promptHistory, dispatch, samplePrompts }) => {
+  const [prompt, setPrompt] = useState('');
+
+  if (!isOpen) return null;
+
+  const handleSubmit = () => {
+    if (!prompt.trim()) return;
+    dispatch({ type: ACTIONS.ADD_PROMPT, payload: { text: prompt, timestamp: new Date().toISOString() } });
+    setPrompt('');
+  };
+
+  const handleSamplePrompt = (text) => {
+    setPrompt(text);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && e.ctrlKey) {
+      handleSubmit();
+    }
+    if (e.key === 'Escape') {
+      onClose();
+    }
+  };
+
+  return (
+    <div style={styles.modalOverlay} onClick={onClose}>
+      <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+        {/* Modal Header */}
+        <div style={styles.modalHeader}>
+          <div style={styles.modalTitle}>
+            <span style={{ fontSize: '28px' }}>AI</span>
+            <div>
+              <div>Foundry IQ Agent</div>
+              <div style={{ fontSize: '12px', opacity: 0.8, fontWeight: '400' }}>
+                {selectedAudit ? `Analyzing: ${selectedAudit.partner || selectedAudit.name}` : 'Select an audit for context-aware analysis'}
+              </div>
+            </div>
+          </div>
+          <button style={styles.modalCloseBtn} onClick={onClose} title="Close (Esc)">
+            X
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div style={styles.modalBody}>
+          {/* Main Chat Area */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Prompt Input */}
+            <div style={{
+              background: '#f8fafc',
+              borderRadius: '12px',
+              padding: '16px',
+              border: '2px solid #e2e8f0'
+            }}>
+              <textarea
+                style={{
+                  width: '100%',
+                  border: 'none',
+                  background: 'transparent',
+                  resize: 'none',
+                  fontSize: '15px',
+                  lineHeight: '1.6',
+                  outline: 'none',
+                  fontFamily: 'inherit'
+                }}
+                placeholder="Ask a question about the audit evidence... (Ctrl+Enter to submit)"
+                rows={3}
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={handleKeyDown}
+                autoFocus
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+                <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                  Press Ctrl+Enter to submit | Esc to close
+                </span>
+                <button
+                  style={{
+                    ...styles.promptBtn,
+                    padding: '10px 24px',
+                    opacity: prompt.trim() ? 1 : 0.5
+                  }}
+                  onClick={handleSubmit}
+                  disabled={!prompt.trim()}
+                >
+                  Execute Query
+                </button>
+              </div>
+            </div>
+
+            {/* Conversation History */}
+            <div style={{
+              flex: 1,
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px'
+            }}>
+              {promptHistory.length === 0 ? (
+                <div style={{
+                  textAlign: 'center',
+                  padding: '60px 20px',
+                  color: '#94a3b8'
+                }}>
+                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>AI</div>
+                  <div style={{ fontSize: '18px', fontWeight: '600', color: '#64748b' }}>
+                    Start a conversation
+                  </div>
+                  <div style={{ marginTop: '8px' }}>
+                    Ask questions about audit evidence, compliance scores, or certifications
+                  </div>
+                </div>
+              ) : (
+                promptHistory.map((p, idx) => (
+                  <div key={idx} style={{ marginBottom: '20px' }}>
+                    <div style={{
+                      background: '#eff6ff',
+                      padding: '14px 18px',
+                      borderRadius: '12px',
+                      marginBottom: '12px',
+                      fontSize: '14px',
+                      borderLeft: '4px solid #3b82f6'
+                    }}>
+                      <span style={{ fontWeight: '700', color: '#1d4ed8' }}>You:</span> {p.text}
+                    </div>
+                    <AgentResponse prompt={p.text} audit={selectedAudit} />
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Sidebar - Sample Prompts */}
+          <div style={{
+            background: '#f8fafc',
+            borderRadius: '12px',
+            padding: '16px',
+            overflowY: 'auto'
+          }}>
+            <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#475569', fontWeight: '600' }}>
+              Sample Prompts
+            </h4>
+            {Object.entries(samplePrompts).map(([category, prompts]) => (
+              <div key={category} style={{ marginBottom: '16px' }}>
+                <div style={{
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  color: '#94a3b8',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  marginBottom: '8px'
+                }}>
+                  {category}
+                </div>
+                {prompts.map((text, idx) => (
+                  <button
+                    key={idx}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '10px 12px',
+                      marginBottom: '6px',
+                      background: '#fff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      color: '#475569',
+                      lineHeight: '1.4',
+                      transition: 'all 0.2s'
+                    }}
+                    onClick={() => handleSamplePrompt(text)}
+                    onMouseOver={(e) => {
+                      e.target.style.borderColor = '#3b82f6';
+                      e.target.style.background = '#eff6ff';
+                    }}
+                    onMouseOut={(e) => {
+                      e.target.style.borderColor = '#e2e8f0';
+                      e.target.style.background = '#fff';
+                    }}
+                  >
+                    {text.length > 80 ? text.substring(0, 80) + '...' : text}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -2169,7 +2581,10 @@ const PartnerPortal = ({ state, dispatch }) => {
 };
 
 // Auditor Workbench Component
-const AuditorWorkbench = ({ state, dispatch }) => (
+const AuditorWorkbench = ({ state, dispatch }) => {
+  const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
+
+  return (
   <>
     {/* Stats Banner */}
     <div style={{
@@ -2271,7 +2686,7 @@ const AuditorWorkbench = ({ state, dispatch }) => (
       </div>
     </div>
     
-    {/* Right Panel - Prompt Surface */}
+    {/* Right Panel - AI Agent Quick Access */}
     <div style={styles.card}>
       <div style={styles.cardHeader}>
         <div>
@@ -2279,18 +2694,80 @@ const AuditorWorkbench = ({ state, dispatch }) => (
           <p style={styles.cardSubtitle}>Query evidence using natural language prompts</p>
         </div>
       </div>
-      <div style={{ ...styles.cardBody, maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
-        <PromptSurface
-          selectedAudit={state.selectedAudit}
-          promptHistory={state.promptHistory}
-          dispatch={dispatch}
-          samplePrompts={state.samplePrompts}
-        />
+      <div style={{ ...styles.cardBody, padding: '24px' }}>
+        {/* Open Modal Button */}
+        <button
+          style={styles.openAgentBtn}
+          onClick={() => setIsAgentModalOpen(true)}
+          onMouseOver={(e) => {
+            e.target.style.transform = 'translateY(-2px)';
+            e.target.style.boxShadow = '0 6px 20px rgba(59, 130, 246, 0.5)';
+          }}
+          onMouseOut={(e) => {
+            e.target.style.transform = 'translateY(0)';
+            e.target.style.boxShadow = '0 4px 14px rgba(59, 130, 246, 0.4)';
+          }}
+        >
+          <span style={{ fontSize: '24px' }}>AI</span>
+          Open Foundry IQ Agent
+        </button>
+
+        {/* Quick Stats */}
+        <div style={{ marginTop: '24px', padding: '16px', background: '#f8fafc', borderRadius: '12px' }}>
+          <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '12px', fontWeight: '600' }}>
+            Session Summary
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div style={{ textAlign: 'center', padding: '12px', background: '#fff', borderRadius: '8px' }}>
+              <div style={{ fontSize: '24px', fontWeight: '700', color: '#3b82f6' }}>
+                {state.promptHistory.length}
+              </div>
+              <div style={{ fontSize: '11px', color: '#94a3b8' }}>Queries</div>
+            </div>
+            <div style={{ textAlign: 'center', padding: '12px', background: '#fff', borderRadius: '8px' }}>
+              <div style={{ fontSize: '24px', fontWeight: '700', color: '#22c55e' }}>
+                {state.selectedAudit ? '1' : '0'}
+              </div>
+              <div style={{ fontSize: '11px', color: '#94a3b8' }}>Audit Selected</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Query Preview */}
+        {state.promptHistory.length > 0 && (
+          <div style={{ marginTop: '16px' }}>
+            <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '8px', fontWeight: '600' }}>
+              Last Query
+            </div>
+            <div style={{
+              padding: '12px',
+              background: '#eff6ff',
+              borderRadius: '8px',
+              fontSize: '13px',
+              color: '#1e40af',
+              borderLeft: '3px solid #3b82f6'
+            }}>
+              {state.promptHistory[state.promptHistory.length - 1]?.text?.substring(0, 100)}
+              {state.promptHistory[state.promptHistory.length - 1]?.text?.length > 100 ? '...' : ''}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   </div>
+
+  {/* AI Agent Modal */}
+  <AIAgentModal
+    isOpen={isAgentModalOpen}
+    onClose={() => setIsAgentModalOpen(false)}
+    selectedAudit={state.selectedAudit}
+    promptHistory={state.promptHistory}
+    dispatch={dispatch}
+    samplePrompts={state.samplePrompts}
+  />
   </>
-);
+  );
+};
 
 // ==================== MAIN APP ====================
 export default function AuditXApp() {
@@ -2303,7 +2780,7 @@ export default function AuditXApp() {
 
       try {
         console.log('Attempting to fetch data from Cosmos DB...');
-        console.log('Database: AuditResults, Container: Audits');
+        console.log('Database: AuditPlatformDB, Container: audit-results');
 
         // Fetch from Cosmos DB only
         const documents = await fetchAuditsFromCosmosDB();

@@ -1,11 +1,11 @@
-const { createProxyMiddleware } = require('http-proxy-middleware');
+ const { createProxyMiddleware } = require('http-proxy-middleware');
 
 module.exports = function(app) {
   // Proxy requests to Cosmos DB to avoid CORS issues in development
   app.use(
     '/cosmos-api',
     createProxyMiddleware({
-      target: 'https://audit.documents.azure.com:443',
+      target: 'https://auditxdb.documents.azure.com:443',
       changeOrigin: true,
       secure: true,
       pathRewrite: {
